@@ -1,4 +1,31 @@
 import pandas as pd
+from Bio import SeqIO
+
+def filter_fasta(input_fasta, output_fasta, accessions_to_remove):
+    """
+    Remove sequences whose header contains any of the given accessions.
+    accessions_to_remove = {'ABC123', 'XP_00123', ...}
+    """
+    with open(output_fasta, "w") as out:
+        for record in SeqIO.parse(input_fasta, "fasta"):
+            header = record.description
+            if any(acc in header for acc in accessions_to_remove):
+                continue
+            SeqIO.write(record, out, "fasta")
+
+def find_duplicate_headers(fasta_path):
+    seen = set()
+    duplicates = []
+
+    for record in SeqIO.parse(fasta_path, "fasta"):
+        header = record.description
+        if header in seen:
+            duplicates.append(header)
+        else:
+            seen.add(header)
+
+    return duplicates
+
 
 def df_to_fasta(df: pd.DataFrame, path: str):
     """
