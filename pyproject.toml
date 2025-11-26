@@ -8,4 +8,5 @@ dependencies = [
     "bio>=1.8.1",
     "pandas>=2.3.3",
     "requests>=2.32.5",
+    "taxoniq>=1.0.3",
 ]
