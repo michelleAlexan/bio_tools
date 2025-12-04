@@ -175,9 +175,11 @@ def extract_unique_function(fasta_file: str) -> set:
 
     return species_set
 
+# %%
 def merge_fastas(input_fastas, output_fasta):
     """
-    Merge multiple FASTA files into one.
+    Merge FASTA files 
+     -> remove duplicate sequences 
 
     Parameters
     ----------
@@ -186,10 +188,22 @@ def merge_fastas(input_fastas, output_fasta):
     output_fasta : str
         Path to merged FASTA file.
     """
+    seen_ids = set()
+    output_records = []
+
+    for fasta in input_fastas:
+        for record in SeqIO.parse(fasta, "fasta"):
+            if record.id not in seen_ids:
+                seen_ids.add(record.id)
+                output_records.append(record)
+
+    # write merged fasta
     with open(output_fasta, "w") as out:
-        for fasta in input_fastas:
-            for record in SeqIO.parse(fasta, "fasta"):
-                SeqIO.write(record, out, "fasta")
+        SeqIO.write(output_records, out, "fasta")
+
+    return output_fasta
+
+
 
 
 def sanitize_fasta_headers(input_fasta, output_fasta):
