@@ -1,7 +1,11 @@
 #%%
 import pandas as pd
 import openpyxl
-from typing import Dict, List
+
+
+# TODO: currently, I only have my characterized 2ODDs in the collection
+# restrucutre class so that ingroup sequences that are not characterized 
+# are well integrated!
 
 class BaitSequenceCollection():
     """
@@ -57,6 +61,9 @@ class BaitSequenceCollection():
         # Set of all 2ODD functions
         self.funcs = set(self.ingroup_df["function"])
 
+        # all unique fasta header ids
+        self.fasta_ids = set(self.ingroup_df["fasta_id"])
+
         # Mappings
         self.funcs_fastaid_dict = self._get_mapping("function", "fasta_id")
         self.metabolic_funcs_dict = self._get_mapping("metabolic_function", "function")
@@ -75,14 +82,14 @@ class BaitSequenceCollection():
             accession = row["accession"]
             function = row["function"]
             metabolic_function = row["metabolic_function"]
-            organism = row["organism"]
+            organism = row["organism"].replace(" ", "_")
             long_id = f"{accession}${function}${metabolic_function}${organism}"
             fasta_ids.append(long_id)
 
         df["fasta_id"] = fasta_ids
         return df
 
-    def _get_mapping(self, key_col: str, value_col: str, ) -> Dict[str, List[str]]:
+    def _get_mapping(self, key_col: str, value_col: str, ) -> dict[str, list[str]]:
         """
         Return a mapping: key -> list(values) from self.combined_df.
 
@@ -99,7 +106,7 @@ class BaitSequenceCollection():
             mapping key -> list of values
         """
 
-        mapping: Dict[str, List[str]] = {}
+        mapping: dict[str, list[str]] = {}
         for i , row in self.ingroup_df[[key_col, value_col]].iterrows():
             key = row[key_col]
             val = row[value_col]
@@ -117,53 +124,15 @@ class BaitSequenceCollection():
 #%%
 
 PATH_bait_seq_col = "/Users/michellealexander/projects/bio_tools/src/bio_tools/baits/baits_copy.xlsx"
+PATH_fasta = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/2ODD_baits_filtered.fasta"
 
-baits = BaitSequenceCollection(path=PATH_bait_seq_col)
 
-COLORS_2ODDs = {
-    "AOP2" : "#4e7b3a",
-    "AOP3" : "#4a7638",
-    "DPS" : "#4a7637",
-    "GA20ox" : "#6aa84f",
-    "C20-GA2ox": "#93c47d",
-    "C19-GA2ox": "#b6d7a8",
-    "GA2ox" : "#759c63",
-    "DAO" : "#9bb78f",
-    "GA3ox" : "#b6d7a8",
-    "GA13ox" : "#a0bd94",
-    "GA7ox" : "#e8eed0",
-    "2ODD23" : "#fff2cc",
-    "LFS" : "#f4e8c3",
-    "2OG1" : "#ffe599",
-    "C2'H" : "#ffd966",
-    "F6'H" : "#dbc7b0",
-    "S8H" : "#ffc466",
-    "GSLOH" : "#e6bd5a",
-    "GRS" : "#c8b478",
-    "TIIAS" : "#c1b9a0",
-    "D4H" : "#bb9e9e",
-    "BX6" : "#e0bbbb",
-    "FNSI" : "#f4cccc",
-    "FNSI_F3H" : "#d6b3b3",
-    "FNSI_FLS" : "#dcb8b8",
-    "F3H" : "#f4cccc",
-    "FLS_F3H" : "",
-    "H6H" : "#e9d0db",
-    "IDS" : "#e9d0db",
-    "SLC" : "#cfe2f3",
-    "GIM" : "#d0d2e5",
-    "M2H" : "#c27ba0",
-    "M2H_weak" : "#e1afbc",
-    "DMR6" : "#c2d3e2",
-    "S5H" : "#abbbc9",
-    "S3H" : "#95a3af",
-    "FLS" : "#b4a7d6",
-    "LDOX" : "#8e7cc3",
-    "JOX" : "#6fa8dc",
-    "ACCO" : "#3d85c6",
-    "T6OD" : "#3371a8",
-    "COD" : "#316ca2",
-    "SRG" : "#316a9f",
-    "LBO" : "#2c6190"
-}
+char_2ODD_baits = BaitSequenceCollection(path=PATH_bait_seq_col)
+from bio_tools.files.fasta import extract_header_info
+fasta_headers = extract_header_info(PATH_fasta)
+
+print(fasta_headers - char_2ODD_baits.fasta_ids)
+print(char_2ODD_baits.fasta_ids - fasta_headers)
+
 # %%
+

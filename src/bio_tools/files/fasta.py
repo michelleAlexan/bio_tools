@@ -1,5 +1,7 @@
 import pandas as pd
 from Bio import SeqIO
+from typing import Literal, Optional, Union, Set, List
+
 
 def filter_fasta(input_fasta, output_fasta, accessions, mode="remove"):
     """
@@ -148,36 +150,71 @@ def filter_df_to_fasta(df: pd.DataFrame, path: str, function_value: str):
     df_to_fasta(filtered_df, path)
 
 
-def extract_unique_species(fasta_file: str) -> set:
+def extract_header_info(fasta_file: str,
+                        info: Literal["full", "accession", "dtype", "metabolic", "organism"] = "full",
+                        dtype: Literal["as_set", "as_list"] = "as_set",
+                    ) -> set[str] | list[str]:
     """
-    Extract a unique set of species names from FASTA headers.
-    Only works, if header info is separated by "$" and organism is last in order    
+    Extract the header information from a FASTA file. 
+
+    The header format is expected to be 
+        "<accession>$<function>$<metabolic_function>$<organism>"
+            each category, e.g. organism is separated underscorse instead of spaces
+
+    For info, choose between: 
+        - full: entire header 
+        - accession: only the accession numbers
+        - dtype: only the functions 
+        - metabolic: only the metabolic functions
+        - organism
+
+    For dtype (data type), choose between:
+        - as_set (default)
+        - as_list 
     """
-    species_set = set()
-    for record in SeqIO.parse(fasta_file, "fasta"):
-        header = record.description
-        species = header.split("$")[-1].replace("_", " ")
-        species_set.add(species)
 
-    return species_set
+    if dtype == "as_set":
+        infos = set()
+        with open(fasta_file, "r") as f:
+            for record in SeqIO.parse(f, "fasta"):
+                header = record.description
+                acc, func, meta, orga = header.split("$")
+                if info == "full":
+                    infos.add(header)
+                elif info == "accession":
+                    infos.add(acc)
+                elif info == "function":
+                    infos.add(func)
+                elif info == "metabolic":
+                    info.add(meta.replace("_", " "))
+                else:
+                    info.add(orga.replace("_", " "))
+    else:
+        infos = list()
+        with open(fasta_file, "r") as f:
+            for record in SeqIO.parse(f, "fasta"):
+                header = record.description
+                acc, func, meta, orga = header.split("$")
+                if info == "full":
+                    infos.append(header)
+                elif info == "accession":
+                    infos.append(acc)
+                elif info == "function":
+                    infos.append(func)
+                elif info == "metabolic":
+                    info.append(meta.replace("_", " "))
+                else:
+                    info.append(orga.replace("_", " "))
 
+    return infos
+                
 
-def extract_unique_function(fasta_file: str) -> set:
-    """
-    Extract a unique set of species names from FASTA headers.
-    Only works, if header info is separated by "$" and function is second in order  
-    """
-    species_set = set()
-    for record in SeqIO.parse(fasta_file, "fasta"):
-        header = record.description
-        species = header.split("$")[1]
-        species_set.add(species)
-
-    return species_set
 
 # %%
 def merge_fastas(input_fastas, output_fasta):
     """
+    Merge FASTA files 
+     -> remove duplicate sequences 
     Merge FASTA files 
      -> remove duplicate sequences 
 
@@ -198,7 +235,22 @@ def merge_fastas(input_fastas, output_fasta):
                 output_records.append(record)
 
     # write merged fasta
+    seen_ids = set()
+    output_records = []
+
+    for fasta in input_fastas:
+        for record in SeqIO.parse(fasta, "fasta"):
+            if record.id not in seen_ids:
+                seen_ids.add(record.id)
+                output_records.append(record)
+
+    # write merged fasta
     with open(output_fasta, "w") as out:
+        SeqIO.write(output_records, out, "fasta")
+
+    return output_fasta
+
+
         SeqIO.write(output_records, out, "fasta")
 
     return output_fasta

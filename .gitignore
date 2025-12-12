@@ -5,6 +5,7 @@ __pycache__/
 *.DS_Store
 # C extensions
 *.so
+*potential_2ODDs_all.tree
 
 # Distribution / packaging
 .Python
