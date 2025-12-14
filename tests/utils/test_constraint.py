@@ -26,25 +26,18 @@ def test_ensure_no_duplicates(input_list, expected, warning):
 
 
 @pytest.mark.parametrize(
-    "input_value, expected, error",
+    "input_value, expected",
     [
-        ("Arabidopsis thaliana", ["Arabidopsis thaliana"], None),
-        (["A", "B"], ["A", "B"], None),
-        (("A", "B"), ["A", "B"], None),
-        ({"A", "B"}, ["A", "B"], None),
-        (42, None, TypeError),
+        ("Arabidopsis thaliana", ["Arabidopsis thaliana"]),
+        (3702, [3702]),
+        (["A", "B"], ["A", "B"]),
+        (("A", "B"), ["A", "B"]),
+        ({"A", "B"}, ["A", "B"]),
     ],
 )
-def test_ensure_list(input_value, expected, error):
-    if error:
-        with pytest.raises(error):
-            ensure_list(input_value)
-    else:
-        result = ensure_list(input_value)
-        if isinstance(input_value, set):
-            assert set(result) == set(expected)
-        else:
-            assert result == expected
+def test_ensure_list(input_value, expected):
+    result = ensure_list(input_value)
+    assert sorted(result) == sorted(expected)
 
 
 

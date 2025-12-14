@@ -1,4 +1,5 @@
-from typing import Iterable, TypeVar
+from typing import TypeVar
+from collections.abc import Iterable
 import warnings
 
 T = TypeVar("T")
@@ -19,15 +20,13 @@ def internet_on(timeout: float = 3.0) -> bool:
 
 def ensure_list(x: Iterable[T]) -> list[T]:
     """
-    If species is a single value and not an iterable, convert to list. 
+    Take value, convert to list, if not already a list
     """
-    if isinstance(x, str):
+    if (isinstance(x, str)) or (isinstance(x, int)):
         return [x]
 
     if isinstance(x, Iterable):
         return list(x)
-
-    raise TypeError("Species must be a string or an iterable of strings.")
 
 
 def ensure_no_duplicates(l: list[T]) -> list[T]:

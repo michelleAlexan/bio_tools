@@ -1,11 +1,11 @@
 import pytest
 
-from bio_tools.taxa.random import species_by_taxonomic_rank_picker
+from bio_tools.taxa.random import species_picker_by_taxonomic_rank
 ["Arabidopsis thaliana", "Zea mays", "Oryza sativa"], 
 [3702, 4577, 4530],
 
 @pytest.mark.parametrize(
-    "tax_ids, rank, return_n_species, expected, error",  
+    "tax_ids, rank, block_size, expected, error",  
     [
         (
             [3702, 4577, 4530],
@@ -14,22 +14,33 @@ from bio_tools.taxa.random import species_by_taxonomic_rank_picker
             None,
             ValueError
         ), 
+        (
+            [3702, 4577, 4530],
+            "order",
+            2, 
+            [{3702, 4577}, {4530}],
+            None
+        ), 
     ]
 )
-def test_species_by_taxonomic_rank_picker(tax_ids, rank, return_n_species, expected, error):
+def test_species_picker_by_taxonomic_rank(tax_ids, rank, block_size, expected, error):
 
     if error:
         with pytest.raises(ValueError):
-            species_by_taxonomic_rank_picker(
+            species_picker_by_taxonomic_rank(
                 tax_ids=tax_ids, 
-                by_rank=rank, 
-                return_n_species=return_n_species
+                rank=rank, 
+                block_size=block_size, 
+                seed=42
                 )
     else:        
-        result = species_by_taxonomic_rank_picker(
+        result = species_picker_by_taxonomic_rank(
             tax_ids=tax_ids, 
-            by_rank=rank, 
-            return_n_species=return_n_species
+            rank=rank, 
+            block_size=block_size, 
+            seed=42
             )
 
         assert result == expected
+
+

@@ -1,6 +1,7 @@
 #%%
 from ete3 import NCBITaxa
 from pathlib import Path
+from collections.abc import Iterable
 from typing import Literal
 import warnings
 
@@ -21,28 +22,28 @@ RANK_ORDER = {
     "superkingdom": 8,
 }
 
-UP_TO_DATE_SPECIES_NAME_YAML = Path("/Users/michellealexander/projects/bio_tools/config/up_to_date_species_name.yaml")
+UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML = Path("/Users/michellealexander/projects/bio_tools/config/up_to_date_species_name.yaml")
 #%% 
 
 
 
 def map_species_to_correct_names(scientific_names: (list[str] )| (str), 
-                                 up_to_date_species_name_yaml: Path):
+                                 up_to_date_scientific_notations_yaml: Path):
     """
     Take a scientific name(s) that are misspelled 
         and take a path to a yaml file in which wrong names map to up-to-date (correct) names. 
     Return the same list with mapped values. 
     """
-    up_to_date_species_name_dict = load_yaml(up_to_date_species_name_yaml)
+    up_to_date_scientific_notations_dict = load_yaml(up_to_date_scientific_notations_yaml)
 
     scientific_names = ensure_list(scientific_names)
-    corrected_list = [up_to_date_species_name_dict[s] if s in up_to_date_species_name_dict.keys() else s for s in scientific_names]
+    corrected_list = [up_to_date_scientific_notations_dict[s] if s in up_to_date_scientific_notations_dict.keys() else s for s in scientific_names]
     return corrected_list
 
 
-def scientific_name_to_tax_id(species:(list[str] )| (str), 
+def scientific_notation_to_tax_id(species:(list[str] )| (str), 
                               update_ncbi_db: bool = False, 
-                              up_to_date_species_name_yaml: Path | None = None
+                              up_to_date_scientific_notations_yaml: Path | None = None
                             ) -> (list[int] | int):
     """
     Take a list of species, and return as list with corresponding taxon ids.
@@ -83,9 +84,9 @@ def scientific_name_to_tax_id(species:(list[str] )| (str),
     # ----------- handle potential typos / depricated scientific names --------------
     # In case the list of scientific species name includes any typos or depricated species names, 
     # it is possible to manually create a yaml file containing the mapping:
-    #    depricated_species_name -> up_to_date_species_name.
-    if up_to_date_species_name_yaml:
-        species = map_species_to_correct_names(species, up_to_date_species_name_yaml)
+    #    depricated_scientific_notation -> up_to_date_scientific_notation.
+    if up_to_date_scientific_notations_yaml:
+        species = map_species_to_correct_names(species, up_to_date_scientific_notations_yaml)
 
 
     # ---------- fetch tax ids using ete3.NCBITaxa approach --------------
@@ -146,9 +147,9 @@ def ensure_taxa_level_is_lower_than_rank_level(
 
 def get_taxonomic_ranks(
     taxa: (list[int]) | (set[int]) | (list[str]) | (set[str]), 
-    rank: Literal["phylum", "order", "family", "genus"], 
-    return_scientific_names: bool = False
-) -> (dict[int, int]) | (dict[int, int]):
+    rank: Literal["genus", "family", "order", "class"], 
+    return_scientific_notations: bool = False
+) -> (dict[int, int]) | (dict[str, str]):
     """
     Fetch the specified taxonomic rank for each tax ID.
 
@@ -163,7 +164,7 @@ def get_taxonomic_ranks(
     -------
     Dict[int, Optional[str]]
         A dictionary mapping:
-        tax id or scientific name of speciefied taxa -> tax id or scientific name of the specified rank.
+        tax id or scientific notation of speciefied taxa -> tax id or scientific name of the specified rank.
         If the rank is not found for a tax_id, the value will be None.
 
     Notes
@@ -173,42 +174,41 @@ def get_taxonomic_ranks(
     """
 
 
-    # --------- input is iterable of scientific names ------------
-    if isinstance(taxa, list(str)) or isinstance(taxa, set(str)):
-        taxa = scientific_name_to_tax_id(taxa)
-    
+    # --------- convert scientific notation to tax ids ------------
+    if isinstance(taxa, str) or isinstance(taxa, Iterable):
+        if isinstance(taxa, Iterable) and all(isinstance(x, str) for x in taxa):
+            taxa = scientific_notation_to_tax_id(taxa)
 
 
     # ----------- enforce constraints --------------
-    # remove duplicates
     taxa = ensure_list(taxa)
     taxa = ensure_no_duplicates(taxa)
-    ensure_taxa_level_is_lower_than_rank_level()
+    ensure_taxa_level_is_lower_than_rank_level(taxa, rank)
 
+    # ---------- mapping all input values to corresponding ranks -------------
+    
+    result = {}
+    for tid in taxa:
+        # get full lineage 
+        lineage = ncbi.get_lineage(tid)
+        # get rank for all nodes in lineage
+        ranks = ncbi.get_rank(lineage)  # dict {taxid: rank_name}
+        # find the taxid that matches requested rank
+        rank_taxid = next((taxid for taxid in lineage if ranks.get(taxid) == rank), None)
+        if rank_taxid:
+            # fetch the scientific notation, if requested
+            if return_scientific_notations:
+                tid_sn = next(iter(ncbi.get_taxid_translator([tid]).values()))
+                rank_sn = next(iter(ncbi.get_taxid_translator([rank_taxid]).values()))
+                result[tid_sn] = rank_sn
+            else:
+                result[tid] = rank_taxid
 
-    # return tax_ids
+        else:
+            warnings.warn(f"Tax ID {tid} does not have a rank '{rank}'", UserWarning)
+            result[tid] = None
 
-    # result = {}
-    # for tid in tax_ids:
-    #     try:
-    #         # get full lineage (list of taxids from root to species)
-    #         lineage = ncbi.get_lineage(tid)
-    #         # get rank for all nodes in lineage
-    #         ranks = ncbi.get_rank(lineage)  # dict {taxid: rank_name}
-    #         # find the taxid that matches requested rank
-    #         rank_taxid = next((taxid for taxid in lineage if ranks.get(taxid) == rank), None)
-    #         if rank_taxid:
-    #             # fetch the scientific name for that rank
-    #             name = ncbi.get_taxid_translator([rank_taxid])[rank_taxid]
-    #             result[tid] = name
-    #         else:
-    #             warnings.warn(f"Tax ID {tid} does not have a rank '{rank}'", UserWarning)
-    #             result[tid] = None
-    #     except ValueError:  # happens if taxid is not in database
-    #         warnings.warn(f"Tax ID {tid} not found in NCBI database", UserWarning)
-    #         result[tid] = None
-
-    # return result
+    return result
 
 
 #%%
