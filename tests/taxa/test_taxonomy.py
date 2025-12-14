@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from bio_tools.taxa.taxonomy import scientific_name_to_tax_id
+from bio_tools.taxa.taxonomy import scientific_name_to_tax_id, ensure_taxa_level_is_lower_than_rank_level
 
 
 @pytest.mark.parametrize(
@@ -54,3 +54,53 @@ def test_scientific_name_to_tax_id(species, expected, warning):
         assert result == expected
 
 
+
+@pytest.mark.parametrize(
+    "taxa, rank, val_error, key_error",
+    [
+        # invalid argument passed for 'rank' parameter
+        (
+            [1, 2, 3],
+            "invalid_rank",
+            ValueError,
+            None
+        ),
+        # taxa contain species, genus, family and order, the provided rank is class → no error
+        (
+            [3702, 3701, 3700,3699],
+            "class",
+            None,
+            None
+        ),
+        # taxa contains class & the provided rank is class → value error
+        (
+            [3398],
+            "class",
+            ValueError,
+            None
+        ),
+    
+        # taxa contains clade → key error
+        (
+            [3193],
+            "class",
+            None,
+            KeyError,
+        ),
+    ],
+)
+def test_ensure_taxa_level_is_lower_than_rank_level(
+    taxa, rank, val_error, key_error
+):
+    if val_error:
+        with pytest.raises(ValueError):
+            ensure_taxa_level_is_lower_than_rank_level(
+                taxa=taxa, rank=rank
+            )
+    elif key_error:
+        with pytest.raises(KeyError):
+            ensure_taxa_level_is_lower_than_rank_level(
+                taxa=taxa, rank=rank
+            )
+    else:
+        ensure_taxa_level_is_lower_than_rank_level(taxa, rank)

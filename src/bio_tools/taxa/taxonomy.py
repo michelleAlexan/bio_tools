@@ -1,39 +1,30 @@
 #%%
 from ete3 import NCBITaxa
 from pathlib import Path
-from typing import Iterable
+from typing import Literal
 import warnings
 
 from bio_tools.utils.io import load_yaml
+from bio_tools.utils.constraint import internet_on, ensure_list, ensure_no_duplicates
 
 ncbi = NCBITaxa()
 
+RANK_ORDER = {
+    "species": 0,
+    "subspecies": 1,
+    "genus": 2,
+    "family": 3,
+    "order": 4,
+    "class": 5,
+    "phylum": 6,
+    "kingdom": 7,
+    "superkingdom": 8,
+}
+
 UP_TO_DATE_SPECIES_NAME_YAML = Path("/Users/michellealexander/projects/bio_tools/config/up_to_date_species_name.yaml")
-#%%
-def internet_on(timeout: float = 3.0) -> bool:
-    """Check internet by resolving a hostname."""
-    import socket
-    try:
-        socket.setdefaulttimeout(timeout)
-        host = socket.gethostbyname("www.google.com")
-        s = socket.create_connection((host, 80), timeout)
-        s.close()
-        return True
-    except OSError:
-        return False
+#%% 
 
 
-def ensure_list(x):
-    """
-    Helper function. If species is a single value and not an iterable, convert to list. 
-    """
-    if isinstance(x, str):
-        return [x]
-
-    if isinstance(x, Iterable):
-        return list(x)
-
-    raise TypeError("Species must be a string or an iterable of strings.")
 
 def map_species_to_correct_names(scientific_names: (list[str] )| (str), 
                                  up_to_date_species_name_yaml: Path):
@@ -64,12 +55,12 @@ def scientific_name_to_tax_id(species:(list[str] )| (str),
 
     """
 
-    def ete3_ncbi_approach(species):
+    def ete3_ncbi_approach(taxa):
         """
         Helper function. Fetch the species tax ids using the ete3.NCBITaxa approach. 
         """
         tax_ids = []
-        for s in species:
+        for s in taxa:
             try:
                 taxid = ncbi.get_name_translator([s])[s][0]
                 tax_ids.append(taxid)
@@ -80,10 +71,16 @@ def scientific_name_to_tax_id(species:(list[str] )| (str),
 
         return tax_ids
     
-
+    # ----------- enforce constraints --------------
     # normalize to list
     species = ensure_list(species)
+    print(species)
+    # remove duplicates
+    species = ensure_no_duplicates(species)
+    print(species)
 
+
+    # ----------- handle potential typos / depricated scientific names --------------
     # In case the list of scientific species name includes any typos or depricated species names, 
     # it is possible to manually create a yaml file containing the mapping:
     #    depricated_species_name -> up_to_date_species_name.
@@ -91,7 +88,7 @@ def scientific_name_to_tax_id(species:(list[str] )| (str),
         species = map_species_to_correct_names(species, up_to_date_species_name_yaml)
 
 
-    # check if ete3 ncbi approach can be used 
+    # ---------- fetch tax ids using ete3.NCBITaxa approach --------------
     # this fetches the most up to date species - tax id mapping.
     if Path('~/.etetoolkit/taxa.sqlite').expanduser().exists():
         # update taxonomy database 
@@ -100,13 +97,121 @@ def scientific_name_to_tax_id(species:(list[str] )| (str),
         else:
             tax_ids = ete3_ncbi_approach(species)
 
-    #todo: implement taxoniq offline method
+    # todo: implement taxoniq offline method
 
-    # return tax ids 
+    # --------- return -----------
     if len(tax_ids) == 1:
         return tax_ids[0]
     else:
         return tax_ids
+
+
+def ensure_taxa_level_is_lower_than_rank_level(
+    taxa: list[int],
+    rank: Literal["class", "order", "family", "genus"],
+) -> None:
+    """
+    Ensure that all taxa are strictly lower than the specified rank.
+
+    Raises
+    ------
+    ValueError
+        If any taxon has rank > specified rank
+    """
+    allowed_ranks = ["genus", "family", "order", "class"]
+
+    if rank not in allowed_ranks:
+        raise ValueError(
+            f"Invalid rank '{rank}'. "
+            f"Must be one of {allowed_ranks}."
+        )
+    
+    target_rank_value = RANK_ORDER[rank]
+    taxid_to_rank = ncbi.get_rank(taxa)
+
+    for taxid, input_taxa_rank in taxid_to_rank.items():
+        if input_taxa_rank not in RANK_ORDER:
+            raise KeyError(
+                f"TaxID {taxid} has unsupported rank '{input_taxa_rank}'. "
+                f"Allowed ranks: {allowed_ranks}."
+            )
+        
+        if RANK_ORDER[input_taxa_rank] >= target_rank_value:
+            raise ValueError(
+                f"TaxID {taxid} has rank '{input_taxa_rank}', "
+                f"which is not lower than requested rank '{rank}'."
+            )
+
+
+
+def get_taxonomic_ranks(
+    taxa: (list[int]) | (set[int]) | (list[str]) | (set[str]), 
+    rank: Literal["phylum", "order", "family", "genus"], 
+    return_scientific_names: bool = False
+) -> (dict[int, int]) | (dict[int, int]):
+    """
+    Fetch the specified taxonomic rank for each tax ID.
+
+    Parameters
+    ----------
+    tax_ids : List[int]
+        List of NCBI taxonomic IDs.
+    rank : str
+        Taxonomic rank to retrieve (e.g., "order", "family").
+
+    Returns
+    -------
+    Dict[int, Optional[str]]
+        A dictionary mapping:
+        tax id or scientific name of speciefied taxa -> tax id or scientific name of the specified rank.
+        If the rank is not found for a tax_id, the value will be None.
+
+    Notes
+    -----
+    - Uses ete3.NCBITaxa.get_lineage and get_rank to traverse the taxonomy tree.
+    - The function warns for tax IDs not found in NCBI database.
+    """
+
+
+    # --------- input is iterable of scientific names ------------
+    if isinstance(taxa, list(str)) or isinstance(taxa, set(str)):
+        taxa = scientific_name_to_tax_id(taxa)
+    
+
+
+    # ----------- enforce constraints --------------
+    # remove duplicates
+    taxa = ensure_list(taxa)
+    taxa = ensure_no_duplicates(taxa)
+    ensure_taxa_level_is_lower_than_rank_level()
+
+
+    # return tax_ids
+
+    # result = {}
+    # for tid in tax_ids:
+    #     try:
+    #         # get full lineage (list of taxids from root to species)
+    #         lineage = ncbi.get_lineage(tid)
+    #         # get rank for all nodes in lineage
+    #         ranks = ncbi.get_rank(lineage)  # dict {taxid: rank_name}
+    #         # find the taxid that matches requested rank
+    #         rank_taxid = next((taxid for taxid in lineage if ranks.get(taxid) == rank), None)
+    #         if rank_taxid:
+    #             # fetch the scientific name for that rank
+    #             name = ncbi.get_taxid_translator([rank_taxid])[rank_taxid]
+    #             result[tid] = name
+    #         else:
+    #             warnings.warn(f"Tax ID {tid} does not have a rank '{rank}'", UserWarning)
+    #             result[tid] = None
+    #     except ValueError:  # happens if taxid is not in database
+    #         warnings.warn(f"Tax ID {tid} not found in NCBI database", UserWarning)
+    #         result[tid] = None
+
+    # return result
+
+
+#%%
 
 
 # TODO: TEST
@@ -126,11 +231,5 @@ def get_taxa_topology(taxa_ids: list[int]):
             node.name = "NA"
     # Write a clean Newick file
     tree.write(outfile="plant_tree_clean.nwk", format=5)
-
-
-
-
-#%%
-
 
 # %%
