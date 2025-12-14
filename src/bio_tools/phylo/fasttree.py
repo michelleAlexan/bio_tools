@@ -1,30 +1,60 @@
 import subprocess
+from pathlib import Path
 
-def run_fasttree(input_alignment: str, output_tree: str, model: str = "-lg"):
+def run_fasttree(
+    input_alignment: Path,
+    output_tree: Path,
+    model: str = "-lg",
+    fasttree_bin: str = "fasttree",
+):
     """
-    Run FastTree to compute a phylogenetic tree.
+    Run fasttree to compute a phylogenetic tree.
 
     Parameters
     ----------
-    input_alignment : str
-        Path to the input multiple sequence alignment (FASTA).
-    output_tree : str
-        Path where the output tree will be written.
-    model : str, optional
-        Substitution model to use, default is "-lg" (LG model).
+    input_alignment : Path
+        Path to aligned FASTA file.
+    output_tree : Path
+        Path to write Newick tree.
+    model : str
+        Substitution model (e.g. "-lg", "-gtr").
+    fasttree_bin : str
+        fasttree executable name.
     """
+
+    input_alignment = Path(input_alignment)
+    output_tree = Path(output_tree)
+
+    if not input_alignment.exists():
+        raise FileNotFoundError(input_alignment)
+
+    cmd = [
+        fasttree_bin,
+        model,
+        str(input_alignment),
+    ]
+
     result = subprocess.run(
-        ["fasttree", model, input_alignment],
-        capture_output=True,
+        cmd,
+        stdout=subprocess.PIPE,   # tree is written here
+        stderr=subprocess.PIPE,   # diagnostics here
         text=True,
-        check=True
     )
 
-    # Take the last line only (the Newick tree)
-    tree_line = result.stdout.strip().splitlines()[-1]
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"fasttree failed with exit code {result.returncode}\n"
+            f"STDERR:\n{result.stderr}"
+        )
 
-    # Write the tree line to the output file
-    with open(output_tree, "w") as f:
-        f.write(tree_line + "\n")
+    # FastTree prints exactly one Newick tree
+    tree = result.stdout.strip()
 
-    return tree_line
+    if not tree.startswith("("):
+        raise ValueError(
+            "fasttree output does not look like a Newick tree:\n"
+            f"{tree[:200]}"
+        )
+
+    output_tree.write_text(tree + "\n")
+

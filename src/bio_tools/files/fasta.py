@@ -1,6 +1,6 @@
 import pandas as pd
 from Bio import SeqIO
-from typing import Literal, Optional, Union, Set, List
+from typing import Literal
 
 
 def filter_fasta(input_fasta, output_fasta, accessions, mode="remove"):
@@ -249,12 +249,6 @@ def merge_fastas(input_fastas, output_fasta):
         SeqIO.write(output_records, out, "fasta")
 
     return output_fasta
-
-
-        SeqIO.write(output_records, out, "fasta")
-
-    return output_fasta
-
 
 
 
