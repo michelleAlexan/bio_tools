@@ -85,7 +85,7 @@ def df_to_fasta(
                 val = str(row.get(col, "NA")).replace(" ", "_")
                 header_parts.append(val)
 
-            header = ">" + "$".join(header_parts)
+            header = ">" + "__".join(header_parts)
 
             # Extract sequence
             seq = str(row[seq_col]).strip()

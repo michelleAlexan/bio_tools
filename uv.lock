@@ -43,6 +43,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "openpyxl" },
     { name = "pandas" },
+    { name = "pycirclize" },
     { name = "pyqt5" },
     { name = "pytest" },
     { name = "pyyaml" },
@@ -59,6 +60,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pycirclize", specifier = ">=1.10.1" },
     { name = "pyqt5", specifier = ">=5.15.11" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
@@ -754,6 +756,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c6/77/b3d3e00c696c16cf99af81ef7b1f5fe73bd2a307abca41bd7605429fe6e5/pooch-1.8.2.tar.gz", hash = "sha256:76561f0de68a01da4df6af38e9955c4c9d1a5c90da73f7e40276a5728ec83d10", size = 59353, upload-time = "2024-06-06T16:53:46.224Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/87/77cc11c7a9ea9fd05503def69e3d18605852cd0d4b0d3b8f15bbeb3ef1d1/pooch-1.8.2-py3-none-any.whl", hash = "sha256:3529a57096f7198778a5ceefd5ac3ef0e4d06a6ddaf9fc2d609b806f25302c47", size = 64574, upload-time = "2024-06-06T16:53:44.343Z" },
+]
+
+[[package]]
+name = "pycirclize"
+version = "1.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "biopython" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9f/07/500623e3db04a4a64d7cf5ab946e5e5e860c198900650a8ea05e1d870d0a/pycirclize-1.10.1.tar.gz", hash = "sha256:c67c0bcae01b0c37a07c12f0436540f72c3f1068bfc964f388266ec92812b983", size = 20031483, upload-time = "2025-10-03T17:59:38.451Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/ef/a0090b20af352b9e8ca7b5ccef81940df63ba15cf5c66baf5c6145620537/pycirclize-1.10.1-py3-none-any.whl", hash = "sha256:fc571b0223195b651edd22011963628bddd92861a4053526b31035bb3347f43e", size = 83513, upload-time = "2025-10-03T17:59:34.857Z" },
 ]
 
 [[package]]
