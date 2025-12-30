@@ -132,3 +132,6 @@ def plot_char_2ODD_tree(path_tree: str | Path = PATH_BAITS_TREE):
     fig = circos.plotfig()
     fig.set_dpi(600)
 
+
+
+#%%
