@@ -31,11 +31,11 @@ def fork_distance(leaf: Tree, ancestor: Tree):
     count = 0
     n = leaf
 
-    while n is not None and n != ancestor:
+    while n and n != ancestor:
         n = n.up
-        if n is None:
+        if not n:
             break
         if is_fork_node(n):
             count += 1
 
-    return count
+    return count - 1 # subtract root forking node 

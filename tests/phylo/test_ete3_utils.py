@@ -25,7 +25,6 @@ def test_is_fork_node():
     ]
     actual = []
     for n in tree.traverse("postorder"):
-        print(n)
         fork_bool = is_fork_node(n)
         actual.append(fork_bool)
     
