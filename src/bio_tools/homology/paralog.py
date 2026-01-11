@@ -2,19 +2,243 @@
 from Bio import Phylo
 from io import StringIO
 from pycirclize import Circos
-from pathlib import Path
 from typing import Callable
 from ete3 import Tree
 
 
 from bio_tools.viz.tree import maximal_monophyletic_clades_with_singletons
-from bio_tools.phylo.ete3_utils import is_fork_node
+
+
+# %% ------------ NEIGHBORING PARALOGS DETECTION -----------------
+
+
+def collect_neighboring_leaves_by_species(
+    tree: Tree,
+    species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],
+) -> list[tuple[list[Tree], Tree]]:
+    """
+    Pre-scan a gene tree to collect neighboring leaves belonging to the same species.
+
+    This function traverses a phylogenetic gene tree in preorder and groups
+    neighboring (consecutive in traversal order) leaves that share the same
+    species identifier. Each such group represents a *potential* paralog set.
+
+    Parameters
+    ----------
+    tree : ete3.Tree
+        The input argument must be an ete3.Tree that has already been instantiated. 
+        This is important for tracking internal node ids that are definded by random integers. 
+
+    species_extractor : callable, optional
+        Function that extracts species information from a leaf name.
+        By default, assumes leaf labels follow:
+            <gene_id__any_info__species>
+        and extracts the species as the last "__"-separated field.
+
+    Returns
+    -------
+    List[List[str]]
+        A list of groups, each group being a list of leaf names belonging
+        to the same species and appearing consecutively in traversal order.
+
+    Notes
+    -----
+    - This function only identifies *potential* paralogs.
+    - No Last Common Ancestor logic is applied here.
+    - Validation must be done downstream.
+    """
+
+
+    results: list[tuple[list[Tree], Tree]] = []
+
+    current_group: list[Tree] = []
+    current_lca: Tree | None = None
+    previous_species = None
+
+    for node in tree.traverse(strategy="preorder"):
+        if not node.is_leaf():
+            continue
+
+        species = species_extractor(node.name)
+
+        if species == previous_species:
+            # extend current group
+            current_group.append(node)
+
+            # update running LCA
+            if current_lca is None:
+                # group has exactly 2 leaves now
+                current_lca = current_group[0].get_common_ancestor(node)
+            else:
+                current_lca = current_lca.get_common_ancestor(node)
+
+        else:
+            # finalize previous group
+            if len(current_group) > 1:
+                results.append((current_group, current_lca))
+
+            # start new group
+            current_group = [node]
+            current_lca = None
+            previous_species = species
+
+    # handle last group
+    if len(current_group) > 1:
+        results.append((current_group, current_lca))
+
+    return results
+
+
+def clade_is_species_homogeneous(lca: Tree, species: str, 
+                                 species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],) -> bool:
+    """
+    Return True if all leaves under lca belong to the same species.
+    """
+    for leaf in lca.iter_leaves():
+        if species_extractor(leaf.name) != species:
+            return False
+    return True
+
+
+
+def true_redundant_paralog_clades(
+        groups_of_neighboring_leaves_of_same_species: list[tuple[list[Tree], Tree]],
+        species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],
+        
+    ) -> list[tuple[list[Tree], Tree]]:
+    """
+    Take the result of function 'collect_neighboring_leaves_by_species', iterate over all potential paralogous clades, 
+    and test if its an *true* paralogous clade 
+    by checking if the invariant that all leaves under the last common ancestor must  belong to the same species. 
+    """
+
+    def close_sub_group(group, all_true_members, index_first_true_member:int, index_last_true_member:int):
+
+        lca_temp = group[index_first_true_member].get_common_ancestor(group[index_last_true_member]) 
+        if not clade_is_species_homogeneous(lca_temp, species, species_extractor):
+            raise ValueError("You are creating a 'true redundant paralogous clade', " \
+            "but at the same time you are violating the invariant that all leaves under the lca must come from the same species only")
+        
+        redundant_paralogous_clade = (all_true_members, lca_temp)
+        group_results.append(redundant_paralogous_clade)
+        return group_results
+
+
+    results: list[tuple[list[Tree], Tree]] = []
+
+    for group, lca in groups_of_neighboring_leaves_of_same_species:
+        species = species_extractor(group[0].name)
+
+        # if the given group contains only leaves, 
+        # that are redundant paralogs, append them to the result list
+        lca_clade_is_species_homogeneous = clade_is_species_homogeneous(lca, species, species_extractor)
+        if lca_clade_is_species_homogeneous:
+            results.append((group, lca))
+
+        # otherwise: oh boy, here we go:
+        else:
+            # if the group only consists of 2 members and the clade under the lca-node of the two neighboring leaves (remember: same species) 
+            # is not species-homogenous, then discard the group
+            if len(group) == 2: 
+                continue
+
+            # there may be multiple clades within a group that are redundant paralogs
+            # this is why we need a list (group_results) to keep track
+            group_results: list[tuple[list[Tree], Tree]] = []
+            done = False
+
+            # Find all clades that are redundant paralogs within the group
+            # expand each clade as long the invariant:
+            #  "all leaves under the current lca belong to the same species" holds true
+            # for this, iterate over the leaf nodes within the group
+            # start with the first node...
+            for i in range(len(group) - 1):
+                # ... and compare to all other leaves one by one
+                true_members: list[Tree] = [group[i]]
+                for j in range(i + 1, len(group)):
+
+                    # Retrieve the lca to then check if the invariant still holds true.
+                    # If so, move on to the next leaf.
+                    # If the current leaf (group[j]) is already the last leaf of the group, 
+                    # handle everthing else in the else condition. 
+                    lca_temp = group[i].get_common_ancestor(group[j])
+                    c_is_species_homogenous = clade_is_species_homogeneous(lca_temp, species, species_extractor) 
+                    if c_is_species_homogenous and j < len(group) - 1:
+                        true_members.append(group[j])
+                        continue
+                    
+
+                    # here, we reach the end of the (sub-) group of redundant paralogs
+                    # there are differnet cases to be aware of
+                    else:
+                        if not c_is_species_homogenous:
+
+                            # skip if there is only one member so far that does not represent a group
+                            # In example test tree, this exludes the F7.1_B single group
+                            if len(true_members) == 1:
+                                i = j
+                                j = i + 1
+                                break
+
+                            # close the current true member (sub)group properly
+                            elif len(true_members) >= 2:
+                                group_results = close_sub_group(group=group, 
+                                                                all_true_members=true_members, 
+                                                                index_first_true_member=i, 
+                                                                index_last_true_member=j-1)
+
+                                # If there are at least 2 more members in the group, 
+                                # we have to proceed later with updated indices i and j
+                                if j <= len(group) - 2:
+                                    i = j
+                                    j = j + 1
+
+                                    break
+
+                                else: 
+                                    done = True
+                                    break
+
+
+                        # the last member DOES belong to the redundant_paralogous_clade
+                        elif c_is_species_homogenous and j == len(group) - 1:
+                            true_members.append(group[j])
+                            group_results = close_sub_group(group=group, 
+                                                            all_true_members=true_members, 
+                                                            index_first_true_member=i, 
+                                                            index_last_true_member=j)
+                            done = True
+                            break
+                        else:
+                            raise ValueError("Whoops. No idea how that can happen..")
+
+                if done:
+                    break  
+
+            if group_results:        
+                results.extend(group_results)
+            
+
+    return results
+
+
+def detect_redundant_paralog_clades(
+        tree: Tree, 
+        species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1]
+    ) -> list[tuple[list[Tree], Tree]]:
+    potential_paralogs = collect_neighboring_leaves_by_species(tree=tree, species_extractor=species_extractor)
+    result = true_redundant_paralog_clades(
+        groups_of_neighboring_leaves_of_same_species=potential_paralogs, 
+        species_extractor=species_extractor)
+    
+    return result
+
 
 #%% --------- CODE TO VISUALIZE CONCEPT OF DETECTING NEIGHBORING PARALOGS ---------------
 # For better understanding the concept of neighboring paralog detection, 
 # plot an example tree to visualize which leaves should be detected and which
 # leaves are edge cases that should NOT be detected
-VISUALIZE_EXAMPLE = False
+VISUALIZE_EXAMPLE = True
 
 if VISUALIZE_EXAMPLE:
     TEST_TREE_NEWICK = """
@@ -186,6 +410,19 @@ if VISUALIZE_EXAMPLE:
     """
 
     tree = Phylo.read(StringIO(TEST_TREE_NEWICK), "newick")
+    tree_ete3 = Tree(TEST_TREE_NEWICK)
+    species_extractor_test_tree = lambda name: name.split("_")[-1]
+    redundant_paralogs = detect_redundant_paralog_clades(tree=tree_ete3, 
+                                                         species_extractor=species_extractor_test_tree)
+    
+    # collect all leaf names that are true redundant paralogs to color them green
+    green_leaves = []
+    for group, lca in redundant_paralogs:
+        for leaf in group:
+            leaf_name = leaf.name
+            green_leaves.append(leaf_name)
+        
+
     circos, tv = Circos.initialize_from_tree(
         tree_data=tree, 
         start=60,
@@ -194,17 +431,10 @@ if VISUALIZE_EXAMPLE:
     )
 
 
-    # neighboring paralogs to detect => green
+    # result: neighboring paralogs => green
     clades_collapse = maximal_monophyletic_clades_with_singletons(
         tree=tree, 
-        target_leaves=[
-            "F4.1_C", "F4.2_C",
-            "F4.1_A", "F4.2_A",
-            "F5.1_A", "F5.2_A",
-            "F6.1_C", "F6.2_C", "F6.3_C", "F6.4_C",
-            "F7.2_B", "F7.3_B", "F7.4_B",
-            "F1.1_E", "F1.2_E"
-            ]
+        target_leaves=green_leaves
         )
     for clade in clades_collapse:
         tv.set_node_line_props(
@@ -235,221 +465,66 @@ if VISUALIZE_EXAMPLE:
 
     fig = circos.plotfig()
 
-# %% ------------ NEIGHBORING PARALOGS DETECTION -----------------
 
 
-def collect_neighboring_leaves_by_species(
-    tree: Tree,
-    species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],
-) -> list[tuple[list[Tree], Tree]]:
-    """
-    Pre-scan a gene tree to collect neighboring leaves belonging to the same species.
+# %% --------  CHECKOUT FUNCTIONS ON CHARACTERIZED 2ODD TREE -------------
+VISUALIZE_CHAR_2ODD = False
+if VISUALIZE_CHAR_2ODD:
+    twoODD_chars_path = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/2ODD_char_baits_tree.nwk"
+    tree2ODD = Phylo.read(twoODD_chars_path, "newick")
+    tree2ODD_ete3 = Tree(twoODD_chars_path)
+    potentially_paralogs = collect_neighboring_leaves_by_species(tree=tree2ODD_ete3)
+    true_paralogs = detect_redundant_paralog_clades(tree=tree2ODD_ete3)
 
-    This function traverses a phylogenetic gene tree in preorder and groups
-    neighboring (consecutive in traversal order) leaves that share the same
-    species identifier. Each such group represents a *potential* paralog set.
+    circos, tv = Circos.initialize_from_tree(
+    tree_data=tree2ODD, 
+    start=10,
+    end= 350,
+    r_lim=(30, 100),
+    leaf_label_size=2   
+    )
 
-    Parameters
-    ----------
-    tree : ete3.Tree
-        The input argument must be an ete3.Tree that has already been instantiated. 
-        This is important for tracking internal node ids that are definded by random integers. 
+    potentially_paralogs_leaves = []
+    true_paralogs_leaves = []
+    for group, lca in potentially_paralogs:
+        for leaf in group:
+            leaf_name = leaf.name
+            potentially_paralogs_leaves.append(leaf_name)
+    for group, lca in true_paralogs:
+        for leaf in group:
+            leaf_name = leaf.name
+            true_paralogs_leaves.append(leaf_name)
 
-    species_extractor : callable, optional
-        Function that extracts species information from a leaf name.
-        By default, assumes leaf labels follow:
-            <gene_id__any_info__species>
-        and extracts the species as the last "__"-separated field.
+    no_paralogs = [pot_leaf for pot_leaf in potentially_paralogs_leaves if pot_leaf not in true_paralogs_leaves]
+    
 
-    Returns
-    -------
-    List[List[str]]
-        A list of groups, each group being a list of leaf names belonging
-        to the same species and appearing consecutively in traversal order.
+    # result: neighboring paralogs => green
+    clades_collapse = maximal_monophyletic_clades_with_singletons(
+        tree=tree2ODD, 
+        target_leaves=true_paralogs_leaves
+        )
+    for clade in clades_collapse:
+        tv.set_node_line_props(
+            clade, 
+            color="green", 
+            apply_label_color=True
+        )
+    
+    # result: neighboring paralogs => green
+    clades_collapse_red = maximal_monophyletic_clades_with_singletons(
+        tree=tree2ODD, 
+        target_leaves=no_paralogs
+        )
+    for clade in clades_collapse_red:
+        tv.set_node_line_props(
+            clade, 
+            color="red", 
+            apply_label_color=True
+        )
 
-    Notes
-    -----
-    - This function only identifies *potential* paralogs.
-    - No Last Common Ancestor logic is applied here.
-    - Validation must be done downstream.
-    """
+    fig = circos.plotfig()
+    fig.set_dpi(600)
 
-
-    results: list[tuple[list[Tree], Tree]] = []
-
-    current_group: list[Tree] = []
-    current_lca: Tree | None = None
-    previous_species = None
-
-    for node in tree.traverse(strategy="preorder"):
-        if not node.is_leaf():
-            continue
-
-        species = species_extractor(node.name)
-
-        if species == previous_species:
-            # extend current group
-            current_group.append(node)
-
-            # update running LCA
-            if current_lca is None:
-                # group has exactly 2 leaves now
-                current_lca = current_group[0].get_common_ancestor(node)
-            else:
-                current_lca = current_lca.get_common_ancestor(node)
-
-        else:
-            # finalize previous group
-            if len(current_group) > 1:
-                results.append((current_group, current_lca))
-
-            # start new group
-            current_group = [node]
-            current_lca = None
-            previous_species = species
-
-    # handle last group
-    if len(current_group) > 1:
-        results.append((current_group, current_lca))
-
-    return results
-
-
-def clade_is_species_homogeneous(lca: Tree, species: str, 
-                                 species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],) -> bool:
-    """
-    Return True if all leaves under lca belong to the same species.
-    """
-    for leaf in lca.iter_leaves():
-        if species_extractor(leaf.name) != species:
-            return False
-    return True
-
-
-# %%
-def true_redundant_paralog_clades(
-        groups_of_neighboring_leaves_of_same_species: list[tuple[list[Tree], Tree]],
-        species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1],
-        
-    ) -> list[tuple[list[Tree], Tree]]:
-
-    results: list[tuple[list[Tree], Tree]] = []
-
-    for group, lca in groups_of_neighboring_leaves_of_same_species:
-        species = species_extractor(group[0].name)
-
-        # if the given group contains only leaves, 
-        # that are redundant paralogs, append them to the result list
-        lca_clade_is_species_homogeneous = clade_is_species_homogeneous(lca, species, species_extractor)
-        if lca_clade_is_species_homogeneous:
-            results.append((group, lca))
-
-        # otherwise: oh boy, here we go:
-        else:
-            # if the group only consists of 2 members and the clade under the lca-node of the two neighboring leaves (remember: same species) 
-            # is not species-homogenous, then discard the group
-            if len(group) == 2: 
-                continue
-
-            # there may be multiple clades within a group that are redundant paralogs
-            # this is why we need a list (group_results) to keep track
-            group_results: list[tuple[list[Tree], Tree]] = []
-            done = False
-
-            # Find all clades that are redundant paralogs within the group
-            # expand each clade as long the invariant:
-            #  "all leaves under the current lca belong to the same species" holds true
-            # for this, iterate over the leaf nodes within the group
-            # start with the first node...
-            for i in range(len(group) - 1):
-                # ... and compare to all other leaves one by one
-                true_members: list[Tree] = [group[i]]
-                for j in range(i + 1, len(group)):
-
-                    # Retrieve the lca to then check if the invariant still holds true.
-                    # If so, move on to the next leaf.
-                    # If the current leaf (group[j]) is already the last leaf of the group, 
-                    # handle everthing else in the else condition. 
-                    lca_temp = group[i].get_common_ancestor(group[j])
-                    if (clade_is_species_homogeneous(lca_temp, species, species_extractor) 
-                        and j < len(group) - 1):
-                        true_members.append(group[j])
-                        continue
-                    
-                    # here, we reach the end of the (sub-) group of redundant paralogs
-                    # there are differnet cases to be aware of
-                    else:
-                        # The current range of leaves must span more than one leaf 
-                        # - otherwise it wouldnt be a group.
-                        # In example test tree, this exludes the F7.1_B single group
-                        if j - i > 1:
-
-                            # Example: there are 5 members in the group. 
-                            # Members at index 0 to 2 belong to one true redundant paralogous clade 
-                            # (invariant holds true up to index 2).
-                            # This is why we are now in the else condition with j being 3. 
-                            # If there are at least 2 more members in the group, 
-                            # we have to proceed later with updated indices i and j
-                            if j < len(group) - 2:
-                                # not the current, but the previous j (j-1) closes the true redundant paralogous clade 
-                                # get the lca of the group members and collect tree nodes
-                                lca_temp = group[i].get_common_ancestor(group[j - 1]) 
-                                if not clade_is_species_homogeneous(lca_temp, species, species_extractor):
-                                    raise ValueError("You are creating a 'true redundant paralogous clade', " \
-                                    "but at the same time you are violating the invariant that all leaves under the lca must come from the same species only")
-                                
-                                redundant_paralogous_clade = (true_members, lca_temp)
-                                group_results.append(redundant_paralogous_clade)
-
-                                # one true redundant paralogous subgroup within the group is closed
-                                # since there are at least 2 more tree nodes we have to check, update i and j
-                                i = j
-                                j = j + 1
-                                break
-
-                            # the last member of the group has been reached. 
-                            else: 
-                                # there are two cases now:
-                                # first: the last member of the group does NOT belong to redundant_paralogous_clade
-                                lca_temp = group[i].get_common_ancestor(group[j])
-                                if not clade_is_species_homogeneous(lca_temp, species, species_extractor):
-                                    j_last_true_member = j - 1
-
-                                # second: the last member DOES belong to the redundant_paralogous_clade
-                                else:
-                                    j_last_true_member = j 
-                                    true_members.append(group[j])
-                                    
-                                lca_temp = group[i].get_common_ancestor(group[j_last_true_member]) 
-                                if not clade_is_species_homogeneous(lca_temp, species, species_extractor):
-                                    raise ValueError("You are creating a 'true redundant paralogous clade', " \
-                                    "but at the same time you are violating the invariant that all leaves under the lca must come from the same species only")
-                                
-                                redundant_paralogous_clade = (true_members, lca_temp)
-                                group_results.append(redundant_paralogous_clade)
-                        else:
-                            break
-
-                if done:
-                    break  
-            if group_results:        
-                results.extend(group_results)
-    for group, lca in results:
-        print(lca)
-
-    return results
-
-
-
-
-
-
-
-
-
-
-
-                                
 
 #%%
 
@@ -458,6 +533,3 @@ def true_redundant_paralog_clades(
 
 
 
-
-
-# %%
