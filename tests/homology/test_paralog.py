@@ -5,7 +5,8 @@ from ete3 import Tree
 from bio_tools.homology.paralog import (
     collect_neighboring_leaves_by_species,
     clade_is_species_homogeneous,
-    true_redundant_paralog_clades    
+    true_redundant_paralog_clades,
+    detect_redundant_paralog_clades,    
 )
 
 def node_names(result):
@@ -179,6 +180,7 @@ TEST_TREE_NEWICK_STR = """
 );
 """
 t = Tree(TEST_TREE_NEWICK_STR)
+species_extractor_test_tree = lambda name: name.split("_")[-1]
 
 
 lca_F1_1_E__F2_E = t.get_common_ancestor('F1.1_E', 'F2_E')
@@ -223,7 +225,6 @@ lca_F7_Bs = t.get_common_ancestor(
         ]
 )
 def test_clade_is_species_homogeneous(lca, species, expected):
-    species_extractor_test_tree = lambda name: name.split("_")[-1]
     result = clade_is_species_homogeneous(
         lca=lca, 
         species=species, 
@@ -233,9 +234,6 @@ def test_clade_is_species_homogeneous(lca, species, expected):
     
 
 def test_collect_neighboring_leaves_by_species():
-
-
-    species_extractor_test_tree = lambda name: name.split("_")[-1]
 
     result = collect_neighboring_leaves_by_species(
         tree=t,
@@ -264,7 +262,6 @@ lca_F7_2_B__F7_4_B = t.get_common_ancestor(
     'F7.2_B', 'F7.3_B', 'F7.4_B'
 )
 def test_true_redundant_paralog_clades():
-    species_extractor_test_tree = lambda name: name.split("_")[-1]
 
     potential_paralogous_clades = collect_neighboring_leaves_by_species(
         tree=t,
@@ -284,6 +281,25 @@ def test_true_redundant_paralog_clades():
     ]
 
     assert node_names(result) == expected
+
+
+def test_detect_redundant_paralog_clades():
+    expected = [
+        ['F1.1_E', 'F1.2_E'],
+        ['F4.1_C', 'F4.2_C'],
+        ['F4.1_A', 'F4.2_A'],
+        ['F5.1_A', 'F5.2_A'], 
+        ['F6.1_C', 'F6.2_C', 'F6.3_C', 'F6.4_C'],
+        ['F7.2_B', 'F7.3_B', 'F7.4_B'], 
+    ]
+    result = detect_redundant_paralog_clades(
+        tree=t, 
+        species_extractor=species_extractor_test_tree,
+        return_as_strings=True
+        )
+
+    assert result == expected
+
 
 
 # %%

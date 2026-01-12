@@ -224,12 +224,30 @@ def true_redundant_paralog_clades(
 
 def detect_redundant_paralog_clades(
         tree: Tree, 
-        species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1]
-    ) -> list[tuple[list[Tree], Tree]]:
+        species_extractor: Callable[[str], str] = lambda name: name.split("__")[-1], 
+        return_as_strings = False
+    ) -> (list[tuple[list[Tree], Tree]] | list[list[str]]):
+    """
+    Take a ete3.Tree, and collect each clade that encompasses sequences (leaves) from one species only 
+        (aka biologically redundant paralogs). Return as list of tuples, where for each tuple, the first entry is a list of 
+        all tree nodes within the clade and the second entry is the last common ancestor (the "root" of the clade).
+
+        If "returns_as_strings" is set to true, return each clade as a list of strings that represent all leaf names within the clade.
+    """
     potential_paralogs = collect_neighboring_leaves_by_species(tree=tree, species_extractor=species_extractor)
     result = true_redundant_paralog_clades(
         groups_of_neighboring_leaves_of_same_species=potential_paralogs, 
         species_extractor=species_extractor)
+
+    if return_as_strings:
+        result_as_list_of_str = []
+        for group, _ in result:
+            clade = []
+            for leaf in group:
+                leaf_name = leaf.name
+                clade.append(leaf_name)
+            result_as_list_of_str.append(clade)
+        return result_as_list_of_str
     
     return result
 
