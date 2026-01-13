@@ -1,60 +1,71 @@
 import pytest
 from pathlib import Path
 
+
 from bio_tools.taxa.taxonomy import (
-    scientific_notation_to_tax_id, 
+    map_scientific_notation_to_tax_id, 
     ensure_taxa_level_is_lower_than_rank_level, 
-    get_taxonomic_ranks
+    get_taxonomic_ranks,
+    
 )
 
 @pytest.mark.parametrize(
-        "species, expected, warning",
+        "species, result_dict, warning",
 [           
     ( # single value (not a list)
         "Arabidopsis thaliana", 
-        3702,
+        {"Arabidopsis thaliana": 3702},
         None
 
     ),  
     ( # list with all spiecies as string
         ["Arabidopsis thaliana", "Zea mays", "Oryza sativa"], 
-        [3702, 4577, 4530],
+        {
+            "Arabidopsis thaliana": 3702,
+            "Zea mays": 4577,
+            "Oryza sativa": 4530
+        },
         None
     ),  
     ( # a misspelled species name that is not provided in the up_to_date_scientific_notations_yaml
         ["Arabidopsis thalian", "Zea mays", "Oryza sativa"], 
-        [4577, 4530],
+        {
+            "Zea mays": 4577,
+            "Oryza sativa": 4530
+        },
         UserWarning
     ),  
         ( # a misspelled species name that is provided in the up_to_date_scientific_notations_yaml
         "Oryza sativ", 
-        4530, 
+        {
+            "Oryza sativa": 4530
+        },
         None
     ),  
 
 ],
 )
-def test_scientific_name_to_tax_id(species, expected, warning):
+def test_map_scientific_notation_to_tax_id(species, result_dict, warning):
     yaml_path = Path(__file__).parents[1] / "data/example.yaml"
 
     # expected is an UserWarning (species not found) and is removed from returned list
     if warning:
         with pytest.warns(UserWarning):
-            result = scientific_notation_to_tax_id(
+            result = map_scientific_notation_to_tax_id(
                 species=species,
                 update_ncbi_db=False,
                 up_to_date_scientific_notations_yaml=yaml_path,
             )
         #  check that invalid species was discarded 
-        assert result == expected
+        assert result == result_dict
     else:
         # expected is a normal value → compare outputs
-        result = scientific_notation_to_tax_id(
+        result = map_scientific_notation_to_tax_id(
             species=species,
             update_ncbi_db=False,
             up_to_date_scientific_notations_yaml=yaml_path,
         )
-        assert result == expected
+        assert result == result_dict
 
 
 
@@ -159,4 +170,3 @@ def test_get_taxonomic_ranks(taxa, rank, return_scientific_notation, expected, e
                 return_scientific_notations=return_scientific_notation
             )
         assert result == expected
-

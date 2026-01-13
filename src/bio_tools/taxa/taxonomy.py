@@ -41,7 +41,24 @@ def map_species_to_correct_names(scientific_names: (list[str] )| (str),
     return corrected_list
 
 
-def scientific_notation_to_tax_id(species:(list[str] )| (str), 
+def map_tax_ids_using_ete3_ncbi_db(taxa):
+    """
+    Helper function. Fetch the species tax ids using the ete3.NCBITaxa approach. 
+    """
+    tax_id_dict = {}
+    for s in taxa:
+        try:
+            taxid = ncbi.get_name_translator([s])[s][0]
+            tax_id_dict[s] = taxid
+        except KeyError:
+            warnings.warn(f"The species '{s}' was not found by ete3.NCBITaxa.get_name_translator and is thus discarded."
+                        "Check for spelling mistakes or if species name is depricated.", UserWarning)
+            continue
+
+    return tax_id_dict
+
+
+def map_scientific_notation_to_tax_id(species:(list[str] )| (str), 
                               update_ncbi_db: bool = False, 
                               up_to_date_scientific_notations_yaml: Path | None = None
                             ) -> (list[int] | int):
@@ -56,29 +73,12 @@ def scientific_notation_to_tax_id(species:(list[str] )| (str),
 
     """
 
-    def ete3_ncbi_approach(taxa):
-        """
-        Helper function. Fetch the species tax ids using the ete3.NCBITaxa approach. 
-        """
-        tax_ids = []
-        for s in taxa:
-            try:
-                taxid = ncbi.get_name_translator([s])[s][0]
-                tax_ids.append(taxid)
-            except KeyError:
-                warnings.warn(f"The species '{s}' was not found by ete3.NCBITaxa.get_name_translator and is thus discarded."
-                            "Check for spelling mistakes or if species name is depricated.", UserWarning)
-                continue
 
-        return tax_ids
-    
     # ----------- enforce constraints --------------
     # normalize to list
     species = ensure_list(species)
-    print(species)
     # remove duplicates
     species = ensure_no_duplicates(species)
-    print(species)
 
 
     # ----------- handle potential typos / depricated scientific names --------------
@@ -96,16 +96,11 @@ def scientific_notation_to_tax_id(species:(list[str] )| (str),
         if internet_on() and update_ncbi_db:
             ncbi.update_taxonomy_database()
         else:
-            tax_ids = ete3_ncbi_approach(species)
+            tax_id_dict = map_tax_ids_using_ete3_ncbi_db(species)
 
     # todo: implement taxoniq offline method
 
-    # --------- return -----------
-    if len(tax_ids) == 1:
-        return tax_ids[0]
-    else:
-        return tax_ids
-
+    return tax_id_dict
 
 def ensure_taxa_level_is_lower_than_rank_level(
     taxa: list[int],
@@ -177,8 +172,8 @@ def get_taxonomic_ranks(
     # --------- convert scientific notation to tax ids ------------
     if isinstance(taxa, str) or isinstance(taxa, Iterable):
         if isinstance(taxa, Iterable) and all(isinstance(x, str) for x in taxa):
-            taxa = scientific_notation_to_tax_id(taxa)
-
+            taxa_dict = map_scientific_notation_to_tax_id(taxa)
+            taxa = [v for v in taxa_dict.values()]
 
     # ----------- enforce constraints --------------
     taxa = ensure_list(taxa)

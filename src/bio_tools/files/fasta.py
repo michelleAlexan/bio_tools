@@ -1,7 +1,9 @@
 import pandas as pd
 from Bio import SeqIO
 from typing import Literal
-
+from pathlib import Path
+import json
+import re
 
 def filter_fasta(input_fasta, output_fasta, accessions, mode="remove"):
     """
@@ -299,3 +301,116 @@ def remove_metabolic_function(input_fasta: str, output_fasta: str):
             seq = str(rec.seq)
             out.write("\n".join(seq[i:i+80] for i in range(0, len(seq), 80)))
             out.write("\n")
+
+
+
+
+
+def clean_fasta_file(
+    fasta_path: Path,
+    species: str,
+    tax_info: dict[str, str | int] | int,
+    output_dir: Path,
+    max_header_length: int = 80,
+):
+    """
+    Clean FASTA headers, append taxid, rewrite FASTA in place,
+    and write a JSON mapping old -> new headers.
+
+    Output JSON:
+        output_dir / "old_to_new_fasta_headers.json"
+    """
+
+    def clean_header(header: str) -> str:
+        # 1) remove leading ">"
+        h = header.lstrip(">")
+
+        # 2) replace spaces with underscore
+        h = header.replace(" ", "_")
+
+        # 3) keep only safe characters
+        # allowed: letters, numbers, _, ., -, |
+        h = re.sub(r"[^A-Za-z0-9_.\-|]", "", h)
+
+        # 4) trim underscores at ends
+        h = h.strip("_")
+
+        return h
+
+    # taxid
+    if isinstance(tax_info, int):
+        taxid = tax_info
+    else:
+        if species not in tax_info:
+            raise ValueError(f"Species '{species}' not found in species_to_taxid")
+
+        taxid = tax_info[species]
+
+
+    # read records
+    records = list(SeqIO.parse(fasta_path, "fasta"))
+
+    old_to_new: dict[str, str] = {}
+    used_headers: set[str] = set()
+
+    # process headers
+    for record in records:
+        old_header = record.description
+
+        base = clean_header(old_header)
+
+        # add taxid suffix
+        new_header = f"{base}__{taxid}"
+
+        # enforce max length
+        if len(new_header) > max_header_length:
+            cut = max_header_length - len(f"__{taxid}")
+            base_cut = base[:cut]
+            new_header = f"{base_cut}__{taxid}"
+
+        # ensure uniqueness
+        final_header = new_header
+        counter = 1
+        while final_header in used_headers:
+            suffix = f"_dup{counter}"
+            max_base_len = max_header_length - len(suffix)
+            final_header = f"{new_header[:max_base_len]}{suffix}"
+            counter += 1
+
+        used_headers.add(final_header)
+        old_to_new[old_header] = final_header
+
+        # update record in place
+        record.id = final_header
+        record.name = final_header
+        record.description = final_header
+
+    # rewrite FASTA in place
+    SeqIO.write(records, fasta_path, "fasta")
+
+
+    # write JSON mapping
+    output_dir.mkdir(parents=True, exist_ok=True)
+    json_path = output_dir / "clean_fasta_headers.json"
+
+    # merge with existing json if present
+    if json_path.exists():
+        with open(json_path, "r", encoding="utf-8") as f:
+            try:
+                existing = json.load(f)
+            except json.JSONDecodeError:
+                existing = {}
+    else:
+        existing = {}
+
+    # add only new mappings
+    for old, new in old_to_new.items():
+        if old not in existing:
+            existing[old] = new
+
+    # write merged result
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2)
+
+    return old_to_new 
+
