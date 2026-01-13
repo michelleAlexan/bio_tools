@@ -1,10 +1,11 @@
 #%%
-from Bio import Phylo
+from Bio import Phylo, SeqIO
 from io import StringIO
 from pycirclize import Circos
 from typing import Callable
 from ete3 import Tree
-
+from pathlib import Path
+import json
 
 from bio_tools.viz.tree import maximal_monophyletic_clades_with_singletons
 
@@ -252,11 +253,79 @@ def detect_redundant_paralog_clades(
     return result
 
 
+def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path, 
+                                                        output_dir: Path,
+                                                        grouped_redundant_paralogs_as_str: list[list[str]]):
+    """
+    Take a fasta file and 
+        the result of detect_redundant_paralog_clades from a phylogenetic tree of the corresponding fasta file (set result_as_strings to True), 
+        then create a dictory that maps one sequence as a representative sequence to the group of redundant paralogous sequences 
+        and save as json. 
+
+        By default, the longest sequences between all sequences will be selected as the longest sequence. 
+
+        Note that the fasta files must contain the strings from grouped_redundant_paralogs_as_str as headers.
+    """
+    dict_seq_len = {}
+
+    for record in SeqIO.parse(input_fasta, "fasta"):
+        header = record.description
+        seq_len = len(record)
+        dict_seq_len[header] = seq_len
+    
+    json_result: dict[str:list[str]] = {}
+    for group in grouped_redundant_paralogs_as_str:
+        longest_seq_len = 0
+        longest_seq = None
+        for seq in group:
+            current_seq_len = dict_seq_len[seq]
+            if current_seq_len > longest_seq_len:
+                longest_seq_len = current_seq_len
+                longest_seq = seq
+        json_result[longest_seq] = group
+
+    if output_dir is not None:
+        output_json = Path(output_dir) / "mapping_redundant_paralogs.json"
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(json_result, f, indent=2)
+
+    return json_result
+
+
+
+def reduce_seq_collection_to_non_redundancy(input_fasta: Path, 
+                                            output_dir: Path, 
+                                            redundancy_mapping: dict[str:list]): 
+    """
+    Take a fasta file and a redundancy mapping (output of "map_representative_paralog_to_all_redundant_paralogs"), 
+        iterate over all sequences and keep only non-redundant sequences. 
+        Save new fasta as "paralog_redundancy_filtered.fasta"
+    """
+
+    # create two lists: seqs_to_keep and seqs_to_discard
+    seqs_to_keep = []
+    seqs_to_discard = []
+
+    for k, values in redundancy_mapping.items():
+        seqs_to_keep.append(k)
+        for v in values:
+            if v not in seqs_to_keep:
+                seqs_to_discard.append(v)
+
+    output_path = output_dir / "paralog_redundancy_filtered.fasta"
+    with open(output_path, "w") as out:
+        for record in SeqIO.parse(input_fasta, "fasta"):
+            header = record.description
+            if header not in seqs_to_discard:
+                SeqIO.write(record, out, "fasta")
+
+
+
 #%% --------- CODE TO VISUALIZE CONCEPT OF DETECTING NEIGHBORING PARALOGS ---------------
 # For better understanding the concept of neighboring paralog detection, 
 # plot an example tree to visualize which leaves should be detected and which
 # leaves are edge cases that should NOT be detected
-VISUALIZE_EXAMPLE = True
+VISUALIZE_EXAMPLE = False
 
 if VISUALIZE_EXAMPLE:
     TEST_TREE_NEWICK = """
@@ -485,63 +554,6 @@ if VISUALIZE_EXAMPLE:
 
 
 
-# %% --------  CHECKOUT FUNCTIONS ON CHARACTERIZED 2ODD TREE -------------
-VISUALIZE_CHAR_2ODD = False
-if VISUALIZE_CHAR_2ODD:
-    twoODD_chars_path = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/2ODD_char_baits_tree.nwk"
-    tree2ODD = Phylo.read(twoODD_chars_path, "newick")
-    tree2ODD_ete3 = Tree(twoODD_chars_path)
-    potentially_paralogs = collect_neighboring_leaves_by_species(tree=tree2ODD_ete3)
-    true_paralogs = detect_redundant_paralog_clades(tree=tree2ODD_ete3)
-
-    circos, tv = Circos.initialize_from_tree(
-    tree_data=tree2ODD, 
-    start=10,
-    end= 350,
-    r_lim=(30, 100),
-    leaf_label_size=2   
-    )
-
-    potentially_paralogs_leaves = []
-    true_paralogs_leaves = []
-    for group, lca in potentially_paralogs:
-        for leaf in group:
-            leaf_name = leaf.name
-            potentially_paralogs_leaves.append(leaf_name)
-    for group, lca in true_paralogs:
-        for leaf in group:
-            leaf_name = leaf.name
-            true_paralogs_leaves.append(leaf_name)
-
-    no_paralogs = [pot_leaf for pot_leaf in potentially_paralogs_leaves if pot_leaf not in true_paralogs_leaves]
-    
-
-    # result: neighboring paralogs => green
-    clades_collapse = maximal_monophyletic_clades_with_singletons(
-        tree=tree2ODD, 
-        target_leaves=true_paralogs_leaves
-        )
-    for clade in clades_collapse:
-        tv.set_node_line_props(
-            clade, 
-            color="green", 
-            apply_label_color=True
-        )
-    
-    # result: neighboring paralogs => green
-    clades_collapse_red = maximal_monophyletic_clades_with_singletons(
-        tree=tree2ODD, 
-        target_leaves=no_paralogs
-        )
-    for clade in clades_collapse_red:
-        tv.set_node_line_props(
-            clade, 
-            color="red", 
-            apply_label_color=True
-        )
-
-    fig = circos.plotfig()
-    fig.set_dpi(600)
 
 
 #%%

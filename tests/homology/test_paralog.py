@@ -1,12 +1,16 @@
 #%%
 import pytest
 from ete3 import Tree
+from pathlib import Path
+import json
 
 from bio_tools.homology.paralog import (
     collect_neighboring_leaves_by_species,
     clade_is_species_homogeneous,
     true_redundant_paralog_clades,
     detect_redundant_paralog_clades,    
+    map_representative_paralog_to_all_redundant_paralogs,
+    reduce_seq_collection_to_non_redundancy,
 )
 
 def node_names(result):
@@ -303,3 +307,121 @@ def test_detect_redundant_paralog_clades():
 
 
 # %%
+
+
+def test_map_representative_paralog_to_all_redundant_paralogs(tmp_path):
+
+    # mock fasta
+    fasta_content = """>F4.3_C
+AAAAAAAAA
+>unrelated_header
+QQQQQQQQQQ
+>F1.1_E
+EEEEEEEEEEEE
+>unrelated_header2
+QQQQQQ
+>F1.2_E
+EEEEEEEEEEEEEEEEEEE
+>F4.1_C
+AAAAAAA
+>F4.2_C
+AAAAAAAAAAAA
+>unrelated_header3
+QQQQQQQQ
+>F5_C
+AAA
+"""
+    example_fasta = tmp_path / "example.fasta"
+    example_fasta.write_text(fasta_content)
+
+    example_grouping = [
+        ["F1.1_E", "F1.2_E"],
+        ["F4.3_C", "F4.2_C", "F4.1_C"],
+        ]
+    
+    expected_output = {
+        "F1.2_E": ["F1.1_E", "F1.2_E"], 
+        "F4.2_C": ["F4.3_C", "F4.2_C", "F4.1_C"],        
+    }
+
+    result_json = map_representative_paralog_to_all_redundant_paralogs(
+        example_fasta, tmp_path, example_grouping)
+    
+    assert result_json == expected_output
+
+    example_output_path = Path(tmp_path) / "mapping_redundant_paralogs.json"
+    assert example_output_path.exists()
+
+    with open(example_output_path, "r", encoding="utf-8") as f:
+        file_contents = json.load(f)
+
+    assert file_contents == expected_output
+
+
+
+def test_reduce_seq_collection_to_non_redundancy(tmp_path):
+    # mock fasta
+    pre_filtered_fasta_content = """>F4.3_C
+AAAAAAAAA
+>unrelated_header
+QQQQQQQQQQ
+>F1.1_E
+EEEEEEEEEEEE
+>unrelated_header2
+QQQQQQ
+>F1.2_E
+EEEEEEEEEEEEEEEEEEE
+>F4.1_C
+AAAAAAA
+>F4.2_C
+AAAAAAAAAAAA
+>unrelated_header3
+QQQQQQQQ
+>F5_C
+AAA
+"""
+    pre_filtered_fasta = tmp_path / "pre_filtered.fasta"
+    pre_filtered_fasta.write_text(pre_filtered_fasta_content)
+    example_grouping = [
+        ["F1.1_E", "F1.2_E"],
+        ["F4.3_C", "F4.2_C", "F4.1_C"],
+        ]
+    mapping_json = map_representative_paralog_to_all_redundant_paralogs(
+        pre_filtered_fasta, tmp_path, example_grouping)
+
+    post_filtered_fasta_content = """>unrelated_header
+QQQQQQQQQQ
+>unrelated_header2
+QQQQQQ
+>F1.2_E
+EEEEEEEEEEEEEEEEEEE
+>F4.2_C
+AAAAAAAAAAAA
+>unrelated_header3
+QQQQQQQQ
+>F5_C
+AAA
+"""
+
+    expected_filtered_fasta = tmp_path / "post_filtered.fasta"
+    expected_filtered_fasta.write_text(post_filtered_fasta_content)
+
+    print(mapping_json)
+    reduce_seq_collection_to_non_redundancy(
+        input_fasta=pre_filtered_fasta,
+        output_dir=tmp_path, 
+        redundancy_mapping=mapping_json
+    )
+
+    result_output_path = Path(tmp_path) / "paralog_redundancy_filtered.fasta"
+    assert result_output_path.exists()
+
+    with open(result_output_path, "r", encoding="utf-8") as f:
+        fasta = f.read()
+
+    with open(expected_filtered_fasta, "r", encoding="utf-8") as f:
+        expected = f.read()
+
+    assert fasta == expected
+
+
