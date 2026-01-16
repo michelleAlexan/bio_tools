@@ -153,10 +153,14 @@ def true_redundant_paralog_clades(
             #  "all leaves under the current lca belong to the same species" holds true
             # for this, iterate over the leaf nodes within the group
             # start with the first node...
-            for i in range(len(group) - 1):
-                # ... and compare to all other leaves one by one
+            
+            i = 0
+            while i < len(group) - 1:
+
                 true_members: list[Tree] = [group[i]]
-                for j in range(i + 1, len(group)):
+
+                j = i + 1
+                while j < len(group):
 
                     # Retrieve the lca to then check if the invariant still holds true.
                     # If so, move on to the next leaf.
@@ -165,7 +169,9 @@ def true_redundant_paralog_clades(
                     lca_temp = group[i].get_common_ancestor(group[j])
                     c_is_species_homogenous = clade_is_species_homogeneous(lca_temp, species, species_extractor) 
                     if c_is_species_homogenous and j < len(group) - 1:
+
                         true_members.append(group[j])
+                        j += 1
                         continue
                     
 
@@ -178,11 +184,12 @@ def true_redundant_paralog_clades(
                             # In example test tree, this exludes the F7.1_B single group
                             if len(true_members) == 1:
                                 i = j
-                                j = i + 1
+                                j = i 
                                 break
 
                             # close the current true member (sub)group properly
                             elif len(true_members) >= 2:
+
                                 group_results = close_sub_group(group=group, 
                                                                 all_true_members=true_members, 
                                                                 index_first_true_member=i, 
@@ -192,7 +199,7 @@ def true_redundant_paralog_clades(
                                 # we have to proceed later with updated indices i and j
                                 if j <= len(group) - 2:
                                     i = j
-                                    j = j + 1
+                                    j = j 
 
                                     break
 
@@ -318,6 +325,8 @@ def reduce_seq_collection_to_non_redundancy(input_fasta: Path,
             header = record.description
             if header not in seqs_to_discard:
                 SeqIO.write(record, out, "fasta")
+    
+    return output_path
 
 
 

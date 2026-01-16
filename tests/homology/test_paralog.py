@@ -271,7 +271,9 @@ def test_true_redundant_paralog_clades():
         tree=t,
         species_extractor=species_extractor_test_tree
     )
-
+    print("POTENTAIL")
+    for potential_paralogous_clade in potential_paralogous_clades:
+        print(potential_paralogous_clade)
     result = true_redundant_paralog_clades(potential_paralogous_clades, 
                                            species_extractor_test_tree)
 
@@ -283,7 +285,9 @@ def test_true_redundant_paralog_clades():
         (['F6.1_C', 'F6.2_C', 'F6.3_C', 'F6.4_C'], lca_F6_Cs),
         (['F7.2_B', 'F7.3_B', 'F7.4_B'], lca_F7_2_B__F7_4_B),
     ]
-
+    print("result")
+    for r in result:
+        print(r)
     assert node_names(result) == expected
 
 

@@ -25,6 +25,7 @@ def run_mafft(input_fasta, output_fasta, log_file="mafft.log", keep_log=False):
     -------
     None
     """
+    print("Start mafft")
 
     # Open log file for writing
     with open(log_file, "w") as lf:
@@ -43,6 +44,7 @@ def run_mafft(input_fasta, output_fasta, log_file="mafft.log", keep_log=False):
     # Optionally delete log
     if not keep_log and os.path.exists(log_file):
         os.remove(log_file)
+    
 
 def trim_msa_by_gap_fraction(input_alignment, output_alignment=None, gap_threshold=0.9):
     """
@@ -62,7 +64,8 @@ def trim_msa_by_gap_fraction(input_alignment, output_alignment=None, gap_thresho
     trimmed : Bio.Align.MultipleSeqAlignment
         The trimmed alignment.
     """
-
+    print("Start trimming MSA")
+    
     input_alignment = Path(input_alignment)
     if output_alignment is None:
         output_alignment = input_alignment

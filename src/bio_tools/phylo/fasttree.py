@@ -22,6 +22,7 @@ def run_fasttree(
         fasttree executable name.
     """
 
+    print("Start fasttree")
     input_alignment = Path(input_alignment)
     output_tree = Path(output_tree)
 

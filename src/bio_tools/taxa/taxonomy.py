@@ -11,15 +11,16 @@ from bio_tools.utils.constraint import internet_on, ensure_list, ensure_no_dupli
 ncbi = NCBITaxa()
 
 RANK_ORDER = {
-    "species": 0,
-    "subspecies": 1,
-    "genus": 2,
-    "family": 3,
-    "order": 4,
-    "class": 5,
-    "phylum": 6,
-    "kingdom": 7,
-    "superkingdom": 8,
+    "forma": 0,
+    "species": 1,
+    "subspecies": 2,
+    "genus": 3,
+    "family": 4,
+    "order": 5,
+    "class": 6,
+    "phylum": 7,
+    "kingdom": 8,
+    "superkingdom": 9,
 }
 
 UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML = Path("/Users/michellealexander/projects/bio_tools/config/up_to_date_species_name.yaml")
@@ -41,7 +42,7 @@ def map_species_to_correct_names(scientific_names: (list[str] )| (str),
     return corrected_list
 
 
-def map_tax_ids_using_ete3_ncbi_db(taxa):
+def map_tax_ids_using_ete3_ncbi_db(taxa) -> dict:
     """
     Helper function. Fetch the species tax ids using the ete3.NCBITaxa approach. 
     """
@@ -61,7 +62,7 @@ def map_tax_ids_using_ete3_ncbi_db(taxa):
 def map_scientific_notation_to_tax_id(species:(list[str] )| (str), 
                               update_ncbi_db: bool = False, 
                               up_to_date_scientific_notations_yaml: Path | None = None
-                            ) -> (list[int] | int):
+                            ) -> dict:
     """
     Take a list of species, and return as list with corresponding taxon ids.
     

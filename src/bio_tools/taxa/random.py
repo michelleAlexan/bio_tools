@@ -58,36 +58,33 @@ def species_picker_by_taxonomic_rank(
     """
     # ----------- helper function --------------
     def stratified_random_picker(
-    grouped: dict[int, set[int]],
-    block_size: int,
-    seed: int | None = None,
-    )  -> list[set[int]]:
+        grouped: dict[int, set[int]],
+        block_size: int,
+        seed: int | None = None,
+    ) -> list[set[int]]:
         """
-        Randomly pick species in blocks, maximizing rank diversity per block.
-
-        Parameters
-        ----------
-        grouped
-            Mapping of rank_id -> set of species taxids
-        block_size
-            Number of species per block
-        seed
-            Optional random seed for reproducibility
-
-        Returns
-        -------
-        List[Set[int]]
-            List of blocks of selected species
+        Randomly pick species in blocks of fixed size, maximizing rank diversity
+        but always filling blocks to block_size if possible.
         """
-        if seed:
+        if seed is not None:
             random.seed(seed)
 
-        # Make a mutable copy
+        # mutable copy
         remaining = {k: set(v) for k, v in grouped.items()}
         blocks: list[set[int]] = []
 
-        while remaining:
+        # flatten helper
+        def all_remaining_species() -> list[int]:
+            return [s for species in remaining.values() for s in species]
+
+        total_remaining = sum(len(v) for v in remaining.values())
+
+        while total_remaining > 0:
             block: set[int] = set()
+
+            # -------------------
+            # Phase 1: stratified
+            # -------------------
             ranks = list(remaining.keys())
             random.shuffle(ranks)
 
@@ -95,17 +92,35 @@ def species_picker_by_taxonomic_rank(
                 if len(block) >= block_size:
                     break
 
-                species = random.choice(tuple(remaining[rank]))
-                block.add(species)
-                remaining[rank].remove(species)
+                if remaining[rank]:
+                    sp = random.choice(tuple(remaining[rank]))
+                    block.add(sp)
+                    remaining[rank].remove(sp)
 
-                if not remaining[rank]:
-                    del remaining[rank]
+            # -------------------
+            # Phase 2: fill block
+            # -------------------
+            while len(block) < block_size:
+                pool = all_remaining_species()
+                if not pool:
+                    break
+
+                sp = random.choice(pool)
+                block.add(sp)
+
+                # remove from its rank bucket
+                for r in list(remaining.keys()):
+                    if sp in remaining[r]:
+                        remaining[r].remove(sp)
+                        if not remaining[r]:
+                            del remaining[r]
+                        break
 
             blocks.append(block)
+            total_remaining = sum(len(v) for v in remaining.values())
 
         return blocks
-    
+        
 
     # ----------- enforce constraints --------------
     if block_size > len(tax_ids):
@@ -126,9 +141,4 @@ def species_picker_by_taxonomic_rank(
     blocks = stratified_random_picker(grouped, block_size=block_size, seed=seed)
 
     return blocks
-
-    
-
-    
-    
 
