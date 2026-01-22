@@ -1,9 +1,11 @@
 import subprocess
 import os
 from Bio import AlignIO
+from Bio.Seq import Seq
+
 from Bio.Align import MultipleSeqAlignment
 from pathlib import Path
-
+import numpy as np
 
 def run_mafft(input_fasta, output_fasta, log_file="mafft.log", keep_log=False):
     """
@@ -66,34 +68,36 @@ def trim_msa_by_gap_fraction(input_alignment, output_alignment=None, gap_thresho
     """
     print("Start trimming MSA")
     
+
     input_alignment = Path(input_alignment)
     if output_alignment is None:
         output_alignment = input_alignment
     else:
         output_alignment = Path(output_alignment)
 
-    # Read the alignment
     align = AlignIO.read(input_alignment, "fasta")
     n_seq = len(align)
+    aln_len = align.get_alignment_length()
 
-    kept_columns = []
+    # Convert to NumPy array (n_seq x aln_len)
+    arr = np.array([list(str(rec.seq)) for rec in align], dtype="U1")
 
-    for i in range(align.get_alignment_length()):
-        column = align[:, i]
-        gap_fraction = column.count("-") / n_seq
-        if gap_fraction <= gap_threshold:
-            kept_columns.append(i)
+    # Compute gap fraction per column
+    gap_fraction = np.mean(arr == "-", axis=0)
 
-    # Build trimmed alignment efficiently
+    # Boolean mask of columns to keep
+    keep_mask = gap_fraction <= gap_threshold
+
+    # Slice alignment
+    trimmed_arr = arr[:, keep_mask]
+
+    # Build trimmed alignment
     trimmed_records = []
-    for record in align:
-        new_seq = "".join(record.seq[i] for i in kept_columns)
-        record.seq = record.seq.__class__(new_seq)
-        trimmed_records.append(record)
+    for rec, row in zip(align, trimmed_arr):
+        rec.seq = Seq("".join(row))
+        trimmed_records.append(rec)
 
     trimmed = MultipleSeqAlignment(trimmed_records)
-
-    # Write output
     AlignIO.write(trimmed, output_alignment, "fasta")
 
     return trimmed

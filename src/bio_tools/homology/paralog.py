@@ -261,8 +261,10 @@ def detect_redundant_paralog_clades(
 
 
 def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path, 
-                                                        output_dir: Path,
-                                                        grouped_redundant_paralogs_as_str: list[list[str]]):
+                                                        grouped_redundant_paralogs_as_str: list[list[str]],
+                                                        output_dir: Path | None = None,
+                                                        output_name: str = "mapping_redundant_paralogs.json",
+                                                        ):
     """
     Take a fasta file and 
         the result of detect_redundant_paralog_clades from a phylogenetic tree of the corresponding fasta file (set result_as_strings to True), 
@@ -277,7 +279,16 @@ def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path,
 
     for record in SeqIO.parse(input_fasta, "fasta"):
         header = record.description
-        seq_len = len(record)
+        # if group includes a characterized bait sequence, 
+        # DO NOT reduce it!
+        # Instead, let the char bait sequence be key
+        # and reduce the other sequences
+        # Characterized sequence headers follow the pattern 
+        # <accession>__<function>__<metabolic_pathway>__<taxonomicId>
+        if len(header.split("__")) == 4:
+            seq_len = 1000000
+        else:
+            seq_len = len(record)
         dict_seq_len[header] = seq_len
     
     json_result: dict[str:list[str]] = {}
@@ -285,6 +296,7 @@ def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path,
         longest_seq_len = 0
         longest_seq = None
         for seq in group:
+  
             current_seq_len = dict_seq_len[seq]
             if current_seq_len > longest_seq_len:
                 longest_seq_len = current_seq_len
@@ -292,7 +304,7 @@ def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path,
         json_result[longest_seq] = group
 
     if output_dir is not None:
-        output_json = Path(output_dir) / "mapping_redundant_paralogs.json"
+        output_json = Path(output_dir) / output_name
         with open(output_json, "w", encoding="utf-8") as f:
             json.dump(json_result, f, indent=2)
 
@@ -301,8 +313,10 @@ def map_representative_paralog_to_all_redundant_paralogs(input_fasta: Path,
 
 
 def reduce_seq_collection_to_non_redundancy(input_fasta: Path, 
-                                            output_dir: Path, 
-                                            redundancy_mapping: dict[str:list]): 
+                                            redundancy_mapping: dict[str:list],                                            
+                                            output_dir: Path,
+                                            output_name: str = "paralog_redundancy_filtered.fasta",
+                                            ): 
     """
     Take a fasta file and a redundancy mapping (output of "map_representative_paralog_to_all_redundant_paralogs"), 
         iterate over all sequences and keep only non-redundant sequences. 
@@ -319,7 +333,7 @@ def reduce_seq_collection_to_non_redundancy(input_fasta: Path,
             if v not in seqs_to_keep:
                 seqs_to_discard.append(v)
 
-    output_path = output_dir / "paralog_redundancy_filtered.fasta"
+    output_path = output_dir / output_name
     with open(output_path, "w") as out:
         for record in SeqIO.parse(input_fasta, "fasta"):
             header = record.description

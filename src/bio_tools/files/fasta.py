@@ -180,7 +180,7 @@ def extract_header_info(fasta_file: str,
         with open(fasta_file, "r") as f:
             for record in SeqIO.parse(f, "fasta"):
                 header = record.description
-                acc, func, meta, orga = header.split("$")
+                acc, func, meta, taxid = header.split("__")
                 if info == "full":
                     infos.add(header)
                 elif info == "accession":
@@ -188,15 +188,15 @@ def extract_header_info(fasta_file: str,
                 elif info == "function":
                     infos.add(func)
                 elif info == "metabolic":
-                    info.add(meta.replace("_", " "))
+                    infos.add(meta.replace("_", " "))
                 else:
-                    info.add(orga.replace("_", " "))
+                    infos.add(int(taxid))
     else:
         infos = list()
         with open(fasta_file, "r") as f:
             for record in SeqIO.parse(f, "fasta"):
                 header = record.description
-                acc, func, meta, orga = header.split("$")
+                acc, func, meta, taxid = header.split("$")
                 if info == "full":
                     infos.append(header)
                 elif info == "accession":
@@ -204,9 +204,9 @@ def extract_header_info(fasta_file: str,
                 elif info == "function":
                     infos.append(func)
                 elif info == "metabolic":
-                    info.append(meta.replace("_", " "))
+                    infos.append(meta.replace("_", " "))
                 else:
-                    info.append(orga.replace("_", " "))
+                    infos.append(int(taxid))
 
     return infos
                 
