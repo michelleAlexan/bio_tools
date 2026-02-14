@@ -271,9 +271,7 @@ def test_true_redundant_paralog_clades():
         tree=t,
         species_extractor=species_extractor_test_tree
     )
-    print("POTENTAIL")
-    for potential_paralogous_clade in potential_paralogous_clades:
-        print(potential_paralogous_clade)
+
     result = true_redundant_paralog_clades(potential_paralogous_clades, 
                                            species_extractor_test_tree)
 
