@@ -3,7 +3,7 @@ from Bio import Phylo, SeqIO
 from io import StringIO
 from pycirclize import Circos
 from typing import Callable
-from ete3 import Tree
+from ete4 import Tree
 from pathlib import Path
 import json
 
@@ -26,8 +26,8 @@ def collect_neighboring_leaves_by_species(
 
     Parameters
     ----------
-    tree : ete3.Tree
-        The input argument must be an ete3.Tree that has already been instantiated. 
+    tree : ete4.Tree
+        The input argument must be an ete4.Tree that has already been instantiated. 
         This is important for tracking internal node ids that are definded by random integers. 
 
     species_extractor : callable, optional
@@ -38,9 +38,8 @@ def collect_neighboring_leaves_by_species(
 
     Returns
     -------
-    List[List[str]]
-        A list of groups, each group being a list of leaf names belonging
-        to the same species and appearing consecutively in traversal order.
+    A list of groups, each group is represented as a tuple with the first index being a list of leaf nodes belonging
+    to the same species (appearing consecutively in traversal order) and the second index representing the lca of all of these leaves.
 
     Notes
     -----
@@ -57,7 +56,7 @@ def collect_neighboring_leaves_by_species(
     previous_species = None
 
     for node in tree.traverse(strategy="preorder"):
-        if not node.is_leaf():
+        if not node.is_leaf:
             continue
 
         species = species_extractor(node.name)
@@ -69,9 +68,10 @@ def collect_neighboring_leaves_by_species(
             # update running LCA
             if current_lca is None:
                 # group has exactly 2 leaves now
-                current_lca = current_group[0].get_common_ancestor(node)
+                 # MIGRATION FROM ETE3 TO ETE4: current_group[0].common_ancestor(node)   IS NOT POSSIBLE ANYMORE! 
+                current_lca = tree.common_ancestor(current_group[0], node) 
             else:
-                current_lca = current_lca.get_common_ancestor(node)
+                current_lca = tree.common_ancestor(current_lca, node)
 
         else:
             # finalize previous group
@@ -95,7 +95,7 @@ def clade_is_species_homogeneous(lca: Tree, species: str,
     """
     Return True if all leaves under lca belong to the same species.
     """
-    for leaf in lca.iter_leaves():
+    for leaf in lca.leaves():
         if species_extractor(leaf.name) != species:
             return False
     return True
@@ -113,9 +113,10 @@ def true_redundant_paralog_clades(
     by checking if the invariant that all leaves under the last common ancestor must  belong to the same species. 
     """
 
+    root = groups_of_neighboring_leaves_of_same_species[0][1].root
     def close_sub_group(group, all_true_members, index_first_true_member:int, index_last_true_member:int):
 
-        lca_temp = group[index_first_true_member].get_common_ancestor(group[index_last_true_member]) 
+        lca_temp = root.common_ancestor(group[index_first_true_member], group[index_last_true_member]) 
         if not clade_is_species_homogeneous(lca_temp, species, species_extractor):
             raise ValueError("You are creating a 'true redundant paralogous clade', " \
             "but at the same time you are violating the invariant that all leaves under the lca must come from the same species only")
@@ -166,7 +167,7 @@ def true_redundant_paralog_clades(
                     # If so, move on to the next leaf.
                     # If the current leaf (group[j]) is already the last leaf of the group, 
                     # handle everthing else in the else condition. 
-                    lca_temp = group[i].get_common_ancestor(group[j])
+                    lca_temp = root.common_ancestor(group[i], group[j])
                     c_is_species_homogenous = clade_is_species_homogeneous(lca_temp, species, species_extractor) 
                     if c_is_species_homogenous and j < len(group) - 1:
 
@@ -236,7 +237,7 @@ def detect_redundant_paralog_clades(
         return_as_strings = False
     ) -> (list[tuple[list[Tree], Tree]] | list[list[str]]):
     """
-    Take a ete3.Tree, and collect each clade that encompasses sequences (leaves) from one species only 
+    Take a ete4.Tree, and collect each clade that encompasses sequences (leaves) from one species only 
         (aka biologically redundant paralogs). Return as list of tuples, where for each tuple, the first entry is a list of 
         all tree nodes within the clade and the second entry is the last common ancestor (the "root" of the clade).
 
@@ -519,10 +520,10 @@ if VISUALIZE_EXAMPLE:
     );
     """
 
-    tree = Phylo.read(StringIO(TEST_TREE_NEWICK), "newick")
-    tree_ete3 = Tree(TEST_TREE_NEWICK)
+    tree_bioPhylo = Phylo.read(StringIO(TEST_TREE_NEWICK), "newick")
+    tree = Tree(StringIO(TEST_TREE_NEWICK))
     species_extractor_test_tree = lambda name: name.split("_")[-1]
-    redundant_paralogs = detect_redundant_paralog_clades(tree=tree_ete3, 
+    redundant_paralogs = detect_redundant_paralog_clades(tree=tree, 
                                                          species_extractor=species_extractor_test_tree)
     
     # collect all leaf names that are true redundant paralogs to color them green
@@ -534,7 +535,7 @@ if VISUALIZE_EXAMPLE:
         
 
     circos, tv = Circos.initialize_from_tree(
-        tree_data=tree, 
+        tree_data=tree_bioPhylo, 
         start=60,
         end= 300,
         r_lim=(30, 100),
@@ -543,7 +544,7 @@ if VISUALIZE_EXAMPLE:
 
     # result: neighboring paralogs => green
     clades_collapse = maximal_monophyletic_clades_with_singletons(
-        tree=tree, 
+        tree=tree_bioPhylo, 
         target_leaves=green_leaves
         )
     for clade in clades_collapse:
@@ -556,7 +557,7 @@ if VISUALIZE_EXAMPLE:
     # neighboring leaves of the same organism but that do not share a LCA, 
     # aka non neighboring paralogs which the algo should not return => red
     clades_in_question = maximal_monophyletic_clades_with_singletons(
-        tree=tree, 
+        tree=tree_bioPhylo, 
         target_leaves=[
             "F2.1_C", "F2.2_C",
             "F2_A", "F3_A",

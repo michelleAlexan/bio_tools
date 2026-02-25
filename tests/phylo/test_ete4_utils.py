@@ -1,7 +1,7 @@
 import pytest
-from ete3 import Tree
+from ete4 import Tree
 
-from bio_tools.phylo.ete3_utils import (
+from bio_tools.phylo.ete4_utils import (
     is_fork_node, 
     fork_distance
     )
@@ -43,7 +43,7 @@ def test_is_fork_node():
     ]
 )
 def test_fork_distance(input_leaf, expected):
-    t = Tree("(A:0.3,(B,C));", format=1)
-    leaf = t & input_leaf
-    result = fork_distance(leaf, t.get_tree_root())
+    t = Tree("(A:0.3,(B,C));", parser=1)
+    leaf = t[input_leaf]
+    result = fork_distance(leaf, t.root)
     assert result == expected

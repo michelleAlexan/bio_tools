@@ -1,5 +1,5 @@
 #%%
-from ete3 import NCBITaxa
+from ete4 import NCBITaxa
 from pathlib import Path
 from collections.abc import Iterable
 from typing import Literal
@@ -42,9 +42,9 @@ def map_species_to_correct_names(scientific_names: (list[str] )| (str),
     return corrected_list
 
 
-def map_tax_ids_using_ete3_ncbi_db(taxa) -> dict:
+def map_tax_ids_using_ete4_ncbi_db(taxa) -> dict:
     """
-    Helper function. Fetch the species tax ids using the ete3.NCBITaxa approach. 
+    Helper function. Fetch the species tax ids using the ete4.NCBITaxa approach. 
     """
     tax_id_dict = {}
     for s in taxa:
@@ -52,7 +52,7 @@ def map_tax_ids_using_ete3_ncbi_db(taxa) -> dict:
             taxid = ncbi.get_name_translator([s])[s][0]
             tax_id_dict[s] = taxid
         except KeyError:
-            warnings.warn(f"The species '{s}' was not found by ete3.NCBITaxa.get_name_translator and is thus discarded."
+            warnings.warn(f"The species '{s}' was not found by ete4.NCBITaxa.get_name_translator and is thus discarded."
                         "Check for spelling mistakes or if species name is depricated.", UserWarning)
             continue
 
@@ -66,7 +66,7 @@ def map_scientific_notation_to_tax_id(species:(list[str] )| (str),
     """
     Take a list of species, and return as list with corresponding taxon ids.
     
-    For this, convert scientific name to taxonomic id using the ete3.NCBITaxa package. 
+    For this, convert scientific name to taxonomic id using the ete4.NCBITaxa package. 
         If used for first time, a stable internet is required to fetch the taxonomy database.
             - > It will be saved in under '~/.etetoolkit/taxa.sqlite'
         If you haven't updated it for a while and want to fetch the up-to-date database, 
@@ -90,14 +90,14 @@ def map_scientific_notation_to_tax_id(species:(list[str] )| (str),
         species = map_species_to_correct_names(species, up_to_date_scientific_notations_yaml)
 
 
-    # ---------- fetch tax ids using ete3.NCBITaxa approach --------------
+    # ---------- fetch tax ids using ete4.NCBITaxa approach --------------
     # this fetches the most up to date species - tax id mapping.
     if Path('~/.etetoolkit/taxa.sqlite').expanduser().exists():
         # update taxonomy database 
         if internet_on() and update_ncbi_db:
             ncbi.update_taxonomy_database()
         else:
-            tax_id_dict = map_tax_ids_using_ete3_ncbi_db(species)
+            tax_id_dict = map_tax_ids_using_ete4_ncbi_db(species)
 
     # todo: implement taxoniq offline method
 
@@ -165,7 +165,7 @@ def get_taxonomic_ranks(
 
     Notes
     -----
-    - Uses ete3.NCBITaxa.get_lineage and get_rank to traverse the taxonomy tree.
+    - Uses ete4.NCBITaxa.get_lineage and get_rank to traverse the taxonomy tree.
     - The function warns for tax IDs not found in NCBI database.
     """
 

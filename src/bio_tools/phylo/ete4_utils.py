@@ -1,16 +1,16 @@
-from ete3 import Tree
+from ete4 import Tree
 
 
 def is_fork_node(node:Tree) -> bool:
     """
-    Take a ete3 Tree instance (a node) and return true, if node is a forking node
+    Take a ete4 Tree instance (a node) and return true, if node is a forking node
 
 
-    Background: the ete3 Tree is represented by instances of nodes. 
+    Background: the ete4 Tree is represented by instances of nodes. 
         Nodes can be categorized into different structural components of the tree:
         - leaf nodes 
         - branch nodes 
-            (branch lengths are represented as nodes in ete3. See example below (indicated by **)
+            (branch lengths are represented as nodes in ete4. See example below (indicated by **)
         - forking nodes
     e.g.
 
@@ -21,7 +21,7 @@ def is_fork_node(node:Tree) -> bool:
        *\\-* /-F7_D
 
     """
-    return not node.is_leaf() and len(node.children) >= 2
+    return not node.is_leaf and len(node.children) >= 2
 
 
 def fork_distance(leaf: Tree, ancestor: Tree):

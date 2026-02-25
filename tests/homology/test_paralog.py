@@ -1,8 +1,9 @@
 #%%
 import pytest
-from ete3 import Tree
+from ete4 import Tree
 from pathlib import Path
 import json
+from io import StringIO
 
 from bio_tools.homology.paralog import (
     collect_neighboring_leaves_by_species,
@@ -141,7 +142,7 @@ TEST_TREE_NEWICK_STR = """
                                             (
                                                 (
                                                     F6.3_C:0.02
-                                                )0.02,
+                                                ):0.02,
                                                 (
                                                     F6.4_C:0.03
                                                 )0.03
@@ -178,25 +179,26 @@ TEST_TREE_NEWICK_STR = """
                         ):0.3
                     ):0.3
                 ):0.3
-            )0:3
+            ):0.3
         )
     )
 );
 """
+TEST_TREE_NEWICK_STR = TEST_TREE_NEWICK_STR.replace("\n", "").replace(" ", "")
 t = Tree(TEST_TREE_NEWICK_STR)
 species_extractor_test_tree = lambda name: name.split("_")[-1]
 
 
-lca_F1_1_E__F2_E = t.get_common_ancestor('F1.1_E', 'F2_E')
-lca_F2_1_C__F2_2_C = t.get_common_ancestor('F2.1_C', 'F2.2_C')
-lca_F2_A__F3_A     = t.get_common_ancestor('F2_A', 'F3_A')
-lca_F4_1_C__F4_2_C = t.get_common_ancestor('F4.1_C', 'F4.2_C')
-lca_F4_1_A__F5_3_A   = t.get_common_ancestor('F4.1_A', 'F5.3_A')
-lca_F5_2_B__F5_3_B = t.get_common_ancestor('F5.2_B', 'F5.3_B')
-lca_F6_Cs = t.get_common_ancestor(
+lca_F1_1_E__F2_E = t.common_ancestor('F1.1_E', 'F2_E')
+lca_F2_1_C__F2_2_C = t.common_ancestor('F2.1_C', 'F2.2_C')
+lca_F2_A__F3_A     = t.common_ancestor('F2_A', 'F3_A')
+lca_F4_1_C__F4_2_C = t.common_ancestor('F4.1_C', 'F4.2_C')
+lca_F4_1_A__F5_3_A   = t.common_ancestor('F4.1_A', 'F5.3_A')
+lca_F5_2_B__F5_3_B = t.common_ancestor('F5.2_B', 'F5.3_B')
+lca_F6_Cs = t.common_ancestor(
     'F6.1_C', 'F6.2_C', 'F6.3_C', 'F6.4_C'
 )
-lca_F7_Bs = t.get_common_ancestor(
+lca_F7_Bs = t.common_ancestor(
     'F7.1_B', 'F7.2_B', 'F7.3_B', 'F7.4_B'
 )
 @pytest.mark.parametrize(
@@ -259,10 +261,10 @@ def test_collect_neighboring_leaves_by_species():
 
 
 
-lca_F1_1_E__F1_2_E = t.get_common_ancestor('F1.1_E', 'F1.2_E')
-lca_F4_1_A__F4_2_A   = t.get_common_ancestor('F4.1_A', 'F4.2_A')
-lca_F5_1_A__F5_2_A   = t.get_common_ancestor('F5.1_A', 'F5.2_A')
-lca_F7_2_B__F7_4_B = t.get_common_ancestor(
+lca_F1_1_E__F1_2_E = t.common_ancestor('F1.1_E', 'F1.2_E')
+lca_F4_1_A__F4_2_A   = t.common_ancestor('F4.1_A', 'F4.2_A')
+lca_F5_1_A__F5_2_A   = t.common_ancestor('F5.1_A', 'F5.2_A')
+lca_F7_2_B__F7_4_B = t.common_ancestor(
     'F7.2_B', 'F7.3_B', 'F7.4_B'
 )
 def test_true_redundant_paralog_clades():
@@ -347,7 +349,7 @@ AAA
     }
 
     result_json = map_representative_paralog_to_all_redundant_paralogs(
-        example_fasta, tmp_path, example_grouping)
+        example_fasta, example_grouping, tmp_path)
     
     assert result_json == expected_output
 
@@ -389,7 +391,7 @@ AAA
         ["F4.3_C", "F4.2_C", "F4.1_C"],
         ]
     mapping_json = map_representative_paralog_to_all_redundant_paralogs(
-        pre_filtered_fasta, tmp_path, example_grouping)
+        pre_filtered_fasta, example_grouping, tmp_path)
 
     post_filtered_fasta_content = """>unrelated_header
 QQQQQQQQQQ
@@ -427,3 +429,5 @@ AAA
     assert fasta == expected
 
 
+
+# %%

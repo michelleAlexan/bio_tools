@@ -8,133 +8,38 @@ from pycirclize import Circos
 from bio_tools.phylo.twoODDs import COLORS_2ODD_FUNCTION
 import re
 from math import pi
-from ete4.smartview import Layout, TextFace, BASIC_LAYOUT
+from ete4.smartview import Layout, TextFace, PropFace, BASIC_LAYOUT
 
 from collections import defaultdict
-# target gene family is 2ODD but may be any other gene family
-GENE_FAM = "2ODD"
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 DATA_FOLDER = Path(__file__).resolve().parents[3] / "data"
-
-
+# target gene family is 2ODD but may be any other gene family
+GENE_FAM = "2ODD"
 PATH_BAITS_TREE = DATA_FOLDER / f"{GENE_FAM}s/{GENE_FAM}_char_baits_tree.nwk"
 
 
-GROUP_COLORS = {
-    "Lycophytes": "#f6a50d",
-    "Liverworts": "#a6761d",
-    "Ferns": "#c1d717",
-    "Mosses": "#89be86",
-    "Gymnosperms": "#076247",
-    "Early Angiosperms": "#3BA0BC",
-    "Monocots": "#7502d9",
-    "Dicots": "#edc5ec",
-    "Other": "#5F5F5F"
-}
-
-def is_char_bait_sequence(leaf_name: str) -> bool:
-    return len(leaf_name.split("__")) == 4
-
-
-def classify_plant(node):
-    lineage = [t.lower() for t in node.props["named_lineage"]]
-
-    if "lycopodiopsida" in lineage:
-        return "Lycophytes"    #Non-seed vascular plants
-    elif "polypodiopsida" in lineage:
-        return "Ferns"
-    elif "bryophyta" in lineage:
-        return "Mosses"
-    elif "marchantiophyta" in lineage:
-        return "Liverworts"
-    if "acrogymnospermae" in lineage:
-        return "Gymnosperms"
-    elif "liliopsida" in lineage:
-        return "Monocots"
-    elif any(x in lineage for x in ["eudicotyledons", 
-                                    "magnoliopsida", 
-                                    "mesangiospermae"]):
-        return "Dicots"
 
 
-    elif any(x in lineage for x in ["amborellales",
-        "nymphaeales",
-        "austrobaileyales", 
-        "magnoliidae"]):
-        return "Basal Angiosperms"
-    else:
-        print(f"Plant group couldnt be mapped for node {node.props["sci_name"]}")
-        print(lineage)
-        return "Other"
 
-#%%
 
-TREE_PATH = Path("/Users/michellealexander/Documents/ingroup_outgroup/B3/post_B3_tree.nwk")
-t = PhyloTree(open(TREE_PATH), sp_naming_function=lambda name: name.split('__')[-1])
-tax2names, tax2lineages, tax2rank = t.annotate_ncbi_taxa(taxid_attr='species')
 
-#%%
-for leaf in t.leaves():
-    if is_char_bait_sequence(leaf.name):
-        accession, function, metabolic_pathway, tax_id = leaf.name.split("__")
-        leaf.add_props(function= function, 
-                       metabolic_pathway= metabolic_pathway)
-        
 
-    plant_group = classify_plant(leaf)
-    leaf.add_props(plant_group=plant_group, 
-                    color=GROUP_COLORS.get(plant_group, "none"))
-    print(leaf.props["color"])
 
 
-def draw_tree(tree):
-    yield LegendFace(
-        "Plant groups",
-        variable="discrete",
-        colormap=GROUP_COLORS
-    )
 
 
-def draw_node(node):
 
-    color = node.props.get("color")
 
-    if color:
-        yield {'box': {'fill': color, 'opacity': 0.6}}
 
-    if node.is_leaf:
-        yield {
-            'dot': {
-                'shape': 'circle',
-                'radius': 8,
-                'fill': color,
-                'stroke': color
-            }
-        }
 
 
-layout = Layout(
-    "Plant group layout",
-    draw_tree=draw_tree,
-    draw_node=draw_node
-)
 
-t.explore(
-    layouts=[layout],
-    show_popup_props=[
-        'name', 'sci_name', 'taxid',
-        'rank', 'plant_group'
-    ]
-)
 
-#%%
 
-#print(t.to_str(props=['name', 'sci_name', 'taxid', 'rank']))
 
 
 
-#%%
 
 
 
@@ -151,107 +56,6 @@ t.explore(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#%%
-
-pattern = re.compile(r'^(.+?)__(.+?)__(.+?)__(\d+)$')
-
-# ---- TREE STYLE (GLOBAL) ----
-tree_style = {
-    'shape': 'circular',
-    'radius': 0,
-    'angle-start':  -5 * pi / 6     # where the tree starts
-}
-
-# ---- NODE STYLING ----
-def draw_node(node):
-    if node.is_leaf:
-
-        # Always draw the name
-        yield TextFace(node.name,
-                       fs_min=10, fs_max=14,  # font size
-                       style={"fill": "black"},
-                       position="aligned")  # aligns nicely next to the node
-
-        # Optional decorations
-        if pattern.match(node.name):
-            yield {"box": {"fill": "red"}}
-            yield TextFace("★", fs_min=12, fs_max=16, style={"fill": "orange"}, position="aligned")
-
-layout = Layout(
-    name="highlight_pattern",
-    draw_tree=tree_style,
-    draw_node=draw_node
-)
-
-# load your tree
-TREE_PATH = Path("/Users/michellealexander/Documents/ingroup_outgroup/B3/post_B3_tree.nwk")
-t = Tree(open(TREE_PATH))
-
-t.explore(layouts=[layout])
-#%%
-
-#%%
-def taxon_block_layout(node):
-    dist = node.get_distance(t)
-    if dist < 0.3:
-        rank_to_show = "genus"
-    else:
-        rank_to_show = "order"
-
-    name = getattr(node, rank_to_show, None)
-    if name:
-        color = order_colors.get(name, "#CCCCCC")
-        node.add_face(RectFace(15,10, color, color), column=1, position="branch-right")
-        if node.is_leaf():
-            node.add_face(TextFace(node.sci_name, fsize=8), column=2, position="aligned")
-
-from ete4 import BarChartFace
-
-# precompute counts per node (example: counts per order)
-for node in t.traverse():
-    counts = Counter(ch.order for ch in node.iter_leaves())
-    node.add_feature("order_counts", counts)
-
-def heatmap_layout(node):
-    if hasattr(node, "order_counts"):
-        labels = list(node.order_counts.keys())
-        values = list(node.order_counts.values())
-        face = BarChartFace(values, labels=labels, width=80, height=10, colors=[order_colors[l] for l in labels])
-        node.add_face(face, column=3, position="branch-right")
 
 
 
