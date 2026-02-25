@@ -70,7 +70,6 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bio" },
-    { name = "ete3" },
     { name = "ete4" },
     { name = "legacy-cgi" },
     { name = "matplotlib" },
@@ -89,7 +88,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bio", specifier = ">=1.8.1" },
-    { name = "ete3", specifier = ">=3.1.3" },
     { name = "ete4", specifier = ">=4.4.0" },
     { name = "legacy-cgi", specifier = ">=2.6.4" },
     { name = "matplotlib", specifier = ">=3.10.7" },
@@ -380,12 +378,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da4
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
 ]
-
-[[package]]
-name = "ete3"
-version = "3.1.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/59/f26e8bfab088a3989bf1f61b836637039758a22df2d9fc6be491c5a6ccef/ete3-3.1.3.tar.gz", hash = "sha256:06a3b7fa8ed90187b076a8dbbe5b1b62acee94201d3c6e822f55f449601ef6f2", size = 4768608, upload-time = "2023-05-02T09:47:21.01Z" }
 
 [[package]]
 name = "ete4"
