@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "seaborn>=0.13.2",
+    "svgwrite>=1.4.3",
     "taxoniq>=1.0.3",
     "treeprofiler>=2.0.4",
 ]
