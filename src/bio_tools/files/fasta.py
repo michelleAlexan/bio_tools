@@ -303,74 +303,103 @@ def remove_metabolic_function(input_fasta: str, output_fasta: str):
             out.write("\n")
 
 
-
-
-
-def clean_fasta_file(
-    fasta_path: Path,
-    species: str,
-    tax_info: dict[str, str | int] | int,
+def write_clean_fasta_with_taxid(
+    input_fasta_path: Path,
     output_dir: Path,
+    scientific_sp_name: str,
+    tax_info: dict[str, str | int] | int,
     max_header_length: int = 80,
-):
-    """
-    Clean FASTA headers, append taxid, rewrite FASTA in place,
-    and write a JSON mapping old -> new headers.
+    output_fasta_name: str | None = None,
 
-    Output JSON:
-        output_dir / "old_to_new_fasta_headers.json"
-    """
+) -> tuple[dict[str, str], Path, Path]:
+    """ Take a FASTA file, and copy it to a new location while cleaning the headers and append the taxid to the end of each header. 
+    It is assumed that the content of the fasta file is from a single species only. 
+    
+    The header cleaning process includes: 
+    - Replacing spaces with underscores 
+    - Removing special characters (except for underscores, dots, hyphens, and pipes) 
+    - Trimming leading/trailing underscores 
+    - Appending the taxid at the end of the header, separated by "__"
+    - Enforcing a maximum header length (default 80 characters), ensuring the taxid is included 
+    
+    Save the new FASTA file in the specified output directory as "clean_{original_filename}". 
+    Additionaly, create a JSON file in the output directory that maps the original headers to the cleaned headers. 
+    If the JSON file already exists, it will be updated with any new mappings without overwriting existing ones. 
+    
+    Return a tuple containing 
+        - the mapping of original to cleaned headers, 
+        - the path to the cleaned FASTA file, and 
+        - the path to the JSON mapping file."""
+
+    input_fasta_path = Path(input_fasta_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if output_fasta_name:
+        if not output_fasta_name.endswith(".fasta") or not output_fasta_name.endswith(".fa"):
+            output_fasta_name = f"{output_fasta_name}.fasta"
+        output_fasta_path = output_dir / output_fasta_name
+    else:
+        output_fasta_path = output_dir / f"clean_{input_fasta_path.stem}.fasta"
 
     def clean_header(header: str) -> str:
-        # 1) remove leading ">"
         h = header.lstrip(">")
-
-        # 2) replace spaces with underscore
-        h = header.replace(" ", "_")
-
-        # 3) keep only safe characters
-        # allowed: letters, numbers, _, ., -, |
+        h = h.replace(" ", "_")
         h = re.sub(r"[^A-Za-z0-9_.\-|]", "", h)
-
-        # 4) trim underscores at ends
         h = h.strip("_")
-
         return h
 
-    # taxid
+    # determine taxid
     if isinstance(tax_info, int):
         taxid = tax_info
     else:
-        if species not in tax_info:
-            raise ValueError(f"Species '{species}' not found in species_to_taxid")
+        if scientific_sp_name not in tax_info:
+            raise ValueError(
+                f"Species '{scientific_sp_name}' not found in species_to_taxid"
+            )
+        taxid = tax_info[scientific_sp_name]
 
-        taxid = tax_info[species]
-
-
-    # read records
-    records = list(SeqIO.parse(fasta_path, "fasta"))
+    records = list(SeqIO.parse(input_fasta_path, "fasta"))
 
     old_to_new: dict[str, str] = {}
     used_headers: set[str] = set()
 
-    # process headers
     for record in records:
         old_header = record.description
 
-        base = clean_header(old_header)
+        # ensure header is not separated 2 x by "__" already to avoid confusion with bait sequences that 
+        # have the format ><accession>__<function>__<metabolic_pathway>__<taxid>
+        if len(old_header.split("__")) == 3:
+            raise ValueError(f"Header '{old_header}' already contains 2 times '__' which may cause confusion with bait sequence format. Please adjust headers.")
 
-        # add taxid suffix
-        new_header = f"{base}__{taxid}"
+        cleaned = clean_header(old_header)
+
+        match = re.search(r"__(\d+)$", cleaned)
+
+        if match:
+            existing_taxid = int(match.group(1))
+            base = cleaned[: match.start()]
+
+            if existing_taxid == taxid:
+                new_header = cleaned
+            else:
+                new_header = f"{base}__{taxid}"
+
+        else:
+            base = cleaned
+            new_header = f"{base}__{taxid}"
 
         # enforce max length
         if len(new_header) > max_header_length:
-            cut = max_header_length - len(f"__{taxid}")
+            suffix = f"__{taxid}"
+            cut = max_header_length - len(suffix)
             base_cut = base[:cut]
-            new_header = f"{base_cut}__{taxid}"
+            new_header = f"{base_cut}{suffix}"
 
         # ensure uniqueness
         final_header = new_header
         counter = 1
+
         while final_header in used_headers:
             suffix = f"_dup{counter}"
             max_base_len = max_header_length - len(suffix)
@@ -380,20 +409,16 @@ def clean_fasta_file(
         used_headers.add(final_header)
         old_to_new[old_header] = final_header
 
-        # update record in place
         record.id = final_header
         record.name = final_header
         record.description = final_header
 
-    # rewrite FASTA in place
-    SeqIO.write(records, fasta_path, "fasta")
+    # write cleaned FASTA (NEW FILE)
+    SeqIO.write(records, output_fasta_path, "fasta")
 
-
-    # write JSON mapping
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # update JSON mapping
     json_path = output_dir / "clean_fasta_headers.json"
 
-    # merge with existing json if present
     if json_path.exists():
         with open(json_path, "r", encoding="utf-8") as f:
             try:
@@ -403,14 +428,11 @@ def clean_fasta_file(
     else:
         existing = {}
 
-    # add only new mappings
     for old, new in old_to_new.items():
         if old not in existing:
             existing[old] = new
 
-    # write merged result
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(existing, f, indent=2)
 
-    return old_to_new 
-
+    return (old_to_new, output_fasta_path, json_path)

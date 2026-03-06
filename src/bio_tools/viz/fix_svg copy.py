@@ -1,68 +1,101 @@
 #%%
 import re
-from pathlib import Path
 
+input_file = "/Users/michellealexander/Downloads/tree-31.svg"
+output_file = "/Users/michellealexander/Downloads/tree-31_fix.svg"
 
-input_file = Path("/Users/michellealexander/Downloads/tree__.svg")
-output_file = Path("/Users/michellealexander/Downloads/tree_rectfix.svg")
 
 
 with open(input_file, "r", encoding="utf-8") as f:
     svg = f.read()
+    print(svg)
 
-
-# 1️⃣ Remove only nodeboxes WITHOUT fill
-def remove_uncolored_nodeboxes(match):
+# # <path> elements 
+# svg = re.sub(r'<path[^>]*>', '', svg)
+def make_path_transparent(match):
     tag = match.group(0)
 
-    # Check for fill attribute (fill="something")
-    has_fill_attr = re.search(r'fill\s*=\s*"[^"]+"', tag, flags=re.IGNORECASE)
+    # Remove existing fill and stroke definitions
+    tag = re.sub(r'fill="[^"]*"', '', tag)
+    tag = re.sub(r'stroke="[^"]*"', '', tag)
 
-    # Check for fill inside style attribute (style="...fill: ...;...")
-    has_fill_style = re.search(r'style\s*=\s*"[^"]*fill\s*:\s*[^;"]+', tag, flags=re.IGNORECASE)
+    # Add transparent styling
+    tag = tag.replace('<path', '<path fill="darkgrey" stroke="darkgrey"')
 
-    if has_fill_attr or has_fill_style:
-        return tag  # keep colored boxes
+    return tag
 
-    return ''  # remove background ones
+svg = re.sub(r'<path[^>]*>', make_path_transparent, svg)
 
-svg = re.sub(r'<rect[^>]*class="nodebox"[^>]*/?>', remove_uncolored_nodeboxes, svg, flags=re.IGNORECASE)
 
-# 2️⃣ Make all <path> invisible (fill white, stroke none)
+# 2️⃣ Recolor all <line> elements (branches) to darkgrey
+def recolor_line(match):
+    line_tag = match.group(0)
+    # Replace stroke if exists, else add it
+    if 'stroke=' in line_tag:
+        line_tag = re.sub(r'stroke="[^"]*"', 'stroke="darkgrey"', line_tag)
+    else:
+        line_tag = line_tag.replace('<line', '<line stroke="darkgrey"')
+    # Optional: ensure a default stroke-width
+    if 'stroke-width=' not in line_tag:
+        line_tag = line_tag.replace('<line', '<line stroke-width="1"')
+    return line_tag
+
+svg = re.sub(r'<line[^>]*>', recolor_line, svg)
+
+
+# 2️⃣ Find all rects
+# 1️⃣ Remove all nodebox rectangles WITHOUT fill
+# 1️⃣ Remove all rects that have class="nodebox"
+svg = re.sub(r'<rect[^>]*class="nodebox"[^>]*/?>', '', svg)
+
+# 2️⃣ Make all <path> white (so they don't cover things)
 def make_path_white(match):
     tag = match.group(0)
     tag = re.sub(r'fill="[^"]*"', '', tag)
     tag = re.sub(r'stroke="[^"]*"', '', tag)
     return tag.replace('<path', '<path fill="white" stroke="none"')
 
-svg = re.sub(r'<path[^>]*>', make_path_white, svg, flags=re.IGNORECASE)
+# svg = re.sub(r'<path[^>]*>', make_path_white, svg)
 
-# 3️⃣ Recolor <line> elements to darkgrey
+# 3️⃣ Recolor all <line> elements to darkgrey
 def recolor_line(match):
-    tag = match.group(0)
+    line_tag = match.group(0)
 
-    if 'stroke=' in tag:
-        tag = re.sub(r'stroke="[^"]*"', 'stroke="darkgrey"', tag)
+    if 'stroke=' in line_tag:
+        line_tag = re.sub(r'stroke="[^"]*"', 'stroke="darkgrey"', line_tag)
     else:
-        tag = tag.replace('<line', '<line stroke="darkgrey"')
+        line_tag = line_tag.replace('<line', '<line stroke="darkgrey"')
 
-    if 'stroke-width=' not in tag:
-        tag = tag.replace('<line', '<line stroke-width="1"')
+    if 'stroke-width=' not in line_tag:
+        line_tag = line_tag.replace('<line', '<line stroke-width="1"')
 
-    return tag
+    return line_tag
 
-svg = re.sub(r'<line[^>]*>', recolor_line, svg, flags=re.IGNORECASE)
+svg = re.sub(r'<line[^>]*>', recolor_line, svg)
 
-# 4️⃣ Optional: move colored rects to top layer
-rect_pattern = r'<rect[^>]*class="nodebox"[^>]*/?>'
-colored_rects = re.findall(rect_pattern, svg, flags=re.IGNORECASE)
-svg = re.sub(rect_pattern, '', svg, flags=re.IGNORECASE)
-svg = svg.replace('</svg>', ''.join(colored_rects) + '\n</svg>')
+
+svg = re.sub(
+    r'<path\b[^>]*class="collapsed"[^>]*>',
+    lambda m: (
+        re.sub(r'fill="[^"]*"', '', m.group(0))
+        .replace('<path', '<path fill="none" stroke="none"')
+    ),
+    svg
+)
+
+# 4️⃣ Move remaining rects to top layer
+rect_pattern = r'<rect[^>]*>'
+remaining_rects = re.findall(rect_pattern, svg)
+
+# remove them from current positions
+svg = re.sub(rect_pattern, '', svg)
+
+# append at end (top layer)
+svg = svg.replace('</svg>', ''.join(remaining_rects) + '\n</svg>')
 
 with open(output_file, "w", encoding="utf-8") as f:
     f.write(svg)
-
-print("✅ SVG processed! Only colored nodeboxes remain, paths are white, lines are darkgrey.")
+print("SVG fixed! Branch lines are darkgrey, nodeboxes intact, paths removed.")
 
 # %%
 
