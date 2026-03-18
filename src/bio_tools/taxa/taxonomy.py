@@ -23,13 +23,13 @@ RANK_ORDER = {
     "superkingdom": 9,
 }
 
-UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML = Path("/Users/michellealexander/projects/bio_tools/config/up_to_date_species_name.yaml")
+PATH_UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML = Path(__file__).parents[3] / "config/up_to_date_species_name.yaml"
 #%% 
 
 
 
 def map_species_to_correct_names(scientific_names: (list[str] )| (str), 
-                                 up_to_date_scientific_notations_yaml: Path):
+                                 up_to_date_scientific_notations_yaml: Path = PATH_UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML):
     """
     Take a scientific name(s) that are misspelled 
         and take a path to a yaml file in which wrong names map to up-to-date (correct) names. 
@@ -42,9 +42,11 @@ def map_species_to_correct_names(scientific_names: (list[str] )| (str),
     return corrected_list
 
 
-def map_tax_ids_using_ete4_ncbi_db(taxa) -> dict:
+def map_tax_ids_using_ete4_ncbi_db(taxa, raise_on_error: bool = False) -> dict:
     """
-    Helper function. Fetch the species tax ids using the ete4.NCBITaxa approach. 
+    Helper function. Fetch the tax ids for a given taxa (scientific names) using the ete4.NCBITaxa approach. 
+
+    This fetches the most up to date taxa (scientific name) - tax id mapping.
     """
     tax_id_dict = {}
     for s in taxa:
@@ -52,16 +54,20 @@ def map_tax_ids_using_ete4_ncbi_db(taxa) -> dict:
             taxid = ncbi.get_name_translator([s])[s][0]
             tax_id_dict[s] = taxid
         except KeyError:
-            warnings.warn(f"The species '{s}' was not found by ete4.NCBITaxa.get_name_translator and is thus discarded."
-                        "Check for spelling mistakes or if species name is depricated.", UserWarning)
-            continue
+            if raise_on_error:
+                raise ValueError(f"Species '{s}' not found in NCBI taxonomy database.")
+            else:
+                warnings.warn(f"The species '{s}' was not found by ete4.NCBITaxa.get_name_translator and is thus discarded."
+                            "Check for spelling mistakes or if species name is depricated.", UserWarning)
+                continue
 
     return tax_id_dict
 
 
 def map_scientific_notation_to_tax_id(species:(list[str] )| (str), 
                               update_ncbi_db: bool = False, 
-                              up_to_date_scientific_notations_yaml: Path | None = None
+                              up_to_date_scientific_notations_yaml: Path | None = PATH_UP_TO_DATE_SCIENTIFIC_NOTATIONS_YAML,
+                              raise_on_error: bool = False
                             ) -> dict:
     """
     Take a list of species, and return as list with corresponding taxon ids.
@@ -71,6 +77,7 @@ def map_scientific_notation_to_tax_id(species:(list[str] )| (str),
             - > It will be saved in under '~/.etetoolkit/taxa.sqlite'
         If you haven't updated it for a while and want to fetch the up-to-date database, 
             - > set 'update_ncbi_db' parameter to True (may take 2 minutes)
+    Return a dictionary mapping scientific name -> tax id.
 
     """
 
@@ -88,6 +95,7 @@ def map_scientific_notation_to_tax_id(species:(list[str] )| (str),
     #    depricated_scientific_notation -> up_to_date_scientific_notation.
     if up_to_date_scientific_notations_yaml:
         species = map_species_to_correct_names(species, up_to_date_scientific_notations_yaml)
+        print(species)
 
 
     # ---------- fetch tax ids using ete4.NCBITaxa approach --------------
@@ -97,7 +105,7 @@ def map_scientific_notation_to_tax_id(species:(list[str] )| (str),
         if internet_on() and update_ncbi_db:
             ncbi.update_taxonomy_database()
         else:
-            tax_id_dict = map_tax_ids_using_ete4_ncbi_db(species)
+            tax_id_dict = map_tax_ids_using_ete4_ncbi_db(species, raise_on_error=raise_on_error)
 
     # todo: implement taxoniq offline method
 

@@ -27,8 +27,8 @@ GROUP_COLORS = {
 }
 
 COLORS_2ODD_FUNCTION ={
-    "AOP2" : "#438195",
-    "AOP3" : "#438195",
+    "AOP2" : "#498BA0",
+    "AOP3" : "#3D6F80",
     "DPS" : "#377672",
     "GA20ox" : "#6aa84f",
     "C20_GA2ox": "#406732",
@@ -69,6 +69,7 @@ COLORS_2ODD_FUNCTION ={
     "SRG" : "#316a9f",
     "LBO" : "#2c6190",
     "NCS" : "#1a3852",
+    "T2OGD": "#3B8274",
 
 }
 
@@ -325,13 +326,21 @@ def explorer(
     return t
 
 #%%
-t = explorer(PATH_BAITS_TREE, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
+# t = explorer(PATH_BAITS_TREE, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
 
 #%%
-accessions = list(t[1,1,1,1,1,1,0,1,1,1,1,0].leaves())
+#accessions = list(t[1,1,1,1,1,1,0,1,1,1,1,0].leaves())
+
+
+#%% REDUCED PARALOGOUS SEQUENCES
+
+path_red_tree = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/FILTERED_2ODD_char_baits_tree.nwk"
+# t = explorer(path_red_tree, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
 
 
 
+
+#%%
 
 
 

@@ -369,7 +369,7 @@ def write_clean_fasta_with_taxid(
 
         # ensure header is not separated 2 x by "__" already to avoid confusion with bait sequences that 
         # have the format ><accession>__<function>__<metabolic_pathway>__<taxid>
-        if len(old_header.split("__")) == 3:
+        if (len(old_header.split("__")) == 3) and (old_header.split("__")[-1] != str(taxid)):
             raise ValueError(f"Header '{old_header}' already contains 2 times '__' which may cause confusion with bait sequence format. Please adjust headers.")
 
         cleaned = clean_header(old_header)
