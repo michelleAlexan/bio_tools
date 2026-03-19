@@ -6,6 +6,7 @@ from Bio import SeqIO
 import json
 
 from bio_tools.files.fasta import filter_fasta
+from bio_tools.phylo.twoODDs import is_char_bait_sequence
 
 TARGET_RANKS = {"family", "subfamily", "tribe", "genus"}
 
@@ -72,12 +73,11 @@ def reduce_tree_to_family_representatives(tree: Tree | PhyloTree, fasta_path: st
     output_fasta_path = Path(output_dir) / "reduced_fam_level.fasta"
     output_json_path = Path(output_dir) / "reduced_fam_level.json"
 
-    # seqs to discard
-
+    # seqs to discard = all members of clades except the representative, but keep char bait sequences even if they are not representatives
     seqs_to_discard = []
     for rep, members in rep_to_members.items():
         for member in members:
-            if member != rep:
+            if member != rep and not is_char_bait_sequence(member):
                 seqs_to_discard.append(member)
     
     filter_fasta(

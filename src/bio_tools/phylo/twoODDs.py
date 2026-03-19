@@ -53,6 +53,10 @@ COLORS_2ODD_FUNCTION ={
     "LBO" : "#2c6190",
 }
 
+
+def is_char_bait_sequence(leaf_name: str) -> bool:
+    return len(leaf_name.split("__")) == 4
+
 # -------------------- Create iTOL Tree annotation file -------------------- 
 # Coloring each sequence of a 2ODD function corresponding to a specified color.
 # Addtionally, each characterized 2ODD sequence should be indicated by a star.
