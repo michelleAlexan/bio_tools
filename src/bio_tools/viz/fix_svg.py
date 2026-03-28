@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 
 
-input_file = Path("/Users/michellealexander/Downloads/tree__.svg")
-output_file = Path("/Users/michellealexander/Downloads/tree_rectfix.svg")
+input_file = Path("/Users/michellealexander/Downloads/tree-5.svg")
+output_file = Path("/Users/michellealexander/Downloads/ingroup_taxa_order_level.svg")
 
 
 with open(input_file, "r", encoding="utf-8") as f:

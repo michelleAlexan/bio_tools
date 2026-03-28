@@ -153,8 +153,5 @@ def create_2ODD_itol_tree_annotation_files(
                     )
                     break
 
-path_2ODD_fasta = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/paralog_redundancy_filtered.fasta"
-create_2ODD_itol_tree_annotation_files(path_2ODD_fasta)
-
 
 # %%
