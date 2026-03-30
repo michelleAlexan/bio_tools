@@ -1,0 +1,40 @@
+[project]
+name = "bio_tools"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bio>=1.8.1",
+    "ete4>=4.4.0",
+    "legacy-cgi>=2.6.4",
+    "matplotlib>=3.10.7",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.3",
+    "pycirclize>=1.10.1",
+    "pyqt5>=5.15.11",
+    "pyqt6>=6.10.2",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "seaborn>=0.13.2",
+    "svgwrite>=1.4.3",
+    "taxoniq>=1.0.3",
+    "treeprofiler>=2.0.4",
+    "treeview>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
