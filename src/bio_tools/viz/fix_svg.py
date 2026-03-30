@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 
-input_file = Path("/Users/michellealexander/Downloads/tree-5.svg")
+input_file = Path("/Users/michellealexander/Downloads/tree-2 (2).svg")
 output_file = Path("/Users/michellealexander/Downloads/ingroup_taxa_order_level.svg")
 
 

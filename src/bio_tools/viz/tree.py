@@ -4,13 +4,63 @@ from ete4.smartview import Layout, TextFace, LegendFace, PropFace
 from typing import Callable
 from pathlib import Path
 from pycirclize import Circos
-from bio_tools.phylo.twoODDs import COLORS_2ODD_FUNCTION
 from collections import defaultdict
+
+
+def is_char_bait_sequence(leaf_name: str) -> bool:
+    return len(leaf_name.split("__")) == 4
 
 
 VALID_RANKS = {"species", "genus", "family", "order"}
 PATH_BAITS_TREE ="/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/2ODD_char_baits_tree.nwk"
 
+COLORS_CHAR_2ODD_FUNCTION ={
+    "AOP2" : "#4e7b3a",
+    "AOP3" : "#4a7638",
+    "DPS" : "#4a7637",
+    "GA20ox" : "#6aa84f",
+    "C20-GA2ox": "#93c47d",
+    "C19-GA2ox": "#b6d7a8",
+    "GA2ox" : "#759c63",
+    "DAO" : "#9bb78f",
+    "GA3ox" : "#b6d7a8",
+    "GA13ox" : "#a0bd94",
+    "GA7ox" : "#e8eed0",
+    "2ODDC23" : "#fff2cc",
+    "LFS" : "#f4e8c3",
+    "2OG1" : "#ffe599",
+    "C2H" : "#ffd966",
+    "F6H" : "#ec8612",
+    "S8H" : "#f57829",
+    "GSLOH" : "#ec640f",
+    "GRS" : "#e5ac00",
+    "TIIAS" : "#af8300",
+    "D4H" : "#bf7979",
+    "BX6" : "#e0bbbb",
+    "FNSI" : "#c492cc",
+    "FNSI_F3H" : "#c492cc",
+    "FNSI_FLS" : "#c492cc",
+    "F3H" : "#f4cccc",
+    "H6H" : "#e9d0db",
+    "IDS" : "#cd87a6",
+    "SLC" : "#cfe2f3",
+    "GIM" : "#d0d2e5",
+    "M2H" : "#c27ba0",
+    "M2H_weak" : "#e688b8",
+    "DMR6" : "#c2d3e2",
+    "S5H" : "#abbbc9",
+    "S3H" : "#95a3af",
+    "FLS" : "#b4a7d6",
+    "FLS_F3H" : "#b4a7d6",
+    "DAH": "#784fe1",
+    "LDOX" : "#8e7cc3",
+    "JOX" : "#6fa8dc",
+    "ACCO" : "#3d85c6",
+    "T6OD" : "#3371a8",
+    "COD" : "#316ca2",
+    "SRG" : "#316a9f",
+    "LBO" : "#2c6190",
+}
 
 
 COL_2ODD_CLADES = {
@@ -63,9 +113,9 @@ COL_2ODD_CLADES = {
     "2ODD40": "#d67906",
     "2ODD41": "#e33c09",
 
-    "2ODD_minor_clades": "#999999", 
+    "minor_2ODD_cluster": "#999999", 
 
-    "candidate": "#010101",
+    "candidate": "#221F1F",
 }
 
 
@@ -76,13 +126,13 @@ GROUP_COLORS = {
     "Ferns": "#c1d717",
     "Mosses": "#89be86",
     "Gymnosperms": "#076247",
-    "Early Angiosperms": "#3BA0BC",
+    "Basal Angiosperms": "#3BA0BC",
     "Monocots": "#7502d9",
     "Dicots": "#edc5ec",
 }
 
 # REGEX = "^(.+?)__(.+?)__(.+?)__(\d+)$" # /r ^(.+?)__(.+?)__(.+?)__(\d+)$
-
+#%%
 
 def is_char_bait_sequence(leaf_name: str) -> bool:
     return len(leaf_name.split("__")) == 4
@@ -121,9 +171,85 @@ def classify_plant(node):
         print(lineage)
 
 
+def assign_props_to_leaves(
+        tree: Tree, seq_to_two_odd_id: dict | None = None, 
+        candidate_headers: set | None = None):
+
+    # --- Assign characterized bait sequence properties ---
+    for leaf in tree.leaves():
+
+        if is_char_bait_sequence(leaf.name):
+            accession, function, metabolic_pathway, tax_id = leaf.name.split("__")
+            leaf.add_props(
+                function=function,
+                metabolic_pathway=metabolic_pathway
+            )
+
+        if seq_to_two_odd_id:
+            two_odd_id = seq_to_two_odd_id.get(leaf.name, "None")
+            if "minor" in two_odd_id:
+                two_odd_id = "minor_2ODD_cluster"
+            leaf.add_props(two_odd_id=two_odd_id)
+        if candidate_headers and leaf.name in candidate_headers:
+            leaf.add_props(two_odd_id="candidate")
+
+        # assign plant group and color based on the plant group
+        plant_group = classify_plant(leaf)
+        leaf.add_props(
+            plant_group=plant_group,
+            color=GROUP_COLORS.get(plant_group, None)
+        )
+
+
+def assign_cluster_colors_modern(tree, color_dict=COL_2ODD_CLADES):
+    """
+    Assign cluster colors and return an ordered legend mapping.
+    """
+
+    # --- First pass: assign colors to leaves ---
+    present_ids = set()
+
+    for node in tree.traverse("postorder"):
+
+        if node.is_leaf:
+            two_odd_id = node.props.get("two_odd_id")
+
+            if two_odd_id is None:
+                color = None
+                key = None
+
+            elif "minor" in two_odd_id:
+                key = "minor_2ODD_cluster"
+                color = color_dict.get(key)
+
+            else:
+                key = two_odd_id
+                color = color_dict.get(key)
+
+            node.add_props(cluster_color=color)
+
+            if key is not None:
+                present_ids.add(key)
+
+            continue
+
+        # --- internal nodes inherit color if uniform ---
+        child_colors = {child.props.get("cluster_color") for child in node.children}
+
+        if len(child_colors) == 1:
+            color = next(iter(child_colors))
+            if color is not None:
+                node.add_props(cluster_color=color)
+
+    # --- Second pass: build ordered legend ---
+    cluster_colors = {}
+
+    for key in color_dict.keys():  # preserves original order
+        if key in present_ids:
+            cluster_colors[key] = color_dict[key]
+
+    return cluster_colors
 #%%
-
-
 
 def explorer(
     newick: str|Path,
@@ -180,18 +306,12 @@ def explorer(
         t.to_ultrametric()
 
     # --------------------------------------------------
-    # Detect characterized bait sequence
-    # --------------------------------------------------
-    def is_char_bait(name: str):
-        return len(name.split("__")) == 4
-
-    # --------------------------------------------------
     # Leaf processing
     # --------------------------------------------------
     for leaf in t.leaves():
 
         # ---- bait detection ----
-        if is_char_bait(leaf.name):
+        if is_char_bait_sequence(leaf.name):
             try:
                 accession, function, pathway, taxid = leaf.name.split("__")
                 leaf.add_props(
@@ -249,7 +369,7 @@ def explorer(
         yield LegendFace(
             "2ODD Functions",
             variable="discrete",
-            colormap=COLORS_2ODD_FUNCTION,
+            colormap=COLORS_CHAR_2ODD_FUNCTION,
         )
 
         yield {"node-height-min": 1.0, 
@@ -265,7 +385,7 @@ def explorer(
 
         elif branch_color_mode == "function":
             func = node.props.get("function")
-            branch_color = COLORS_2ODD_FUNCTION.get(func)
+            branch_color = COLORS_CHAR_2ODD_FUNCTION.get(func)
 
         else:
             branch_color = None
@@ -337,28 +457,6 @@ def explorer(
 
 
 
-def assign_props_to_leaves(tree: Tree, seq_to_two_odd_id: dict | None = None):
-
-    # --- Assign characterized bait sequence properties ---
-    for leaf in tree.leaves():
-
-        if is_char_bait_sequence(leaf.name):
-            accession, function, metabolic_pathway, tax_id = leaf.name.split("__")
-            leaf.add_props(
-                function=function,
-                metabolic_pathway=metabolic_pathway
-            )
-
-        if seq_to_two_odd_id:
-            two_odd_id = seq_to_two_odd_id.get(leaf.name, "minor_2ODD_cluster")
-            leaf.add_props(two_odd_id=two_odd_id)
-
-        # assign plant group and color based on the plant group
-        plant_group = classify_plant(leaf)
-        leaf.add_props(
-            plant_group=plant_group,
-            color=GROUP_COLORS.get(plant_group, None)
-        )
 
 
 def explore_tree_plant_groups(tree: Tree):
@@ -423,71 +521,9 @@ def explore_tree_plant_groups(tree: Tree):
 
 
 
+def explore_2ODD_IDs(tree):
 
-def load_treecluster_assignments(tree: Tree, cluster_file: str):
-
-    cluster_map = {}
-
-    with open(cluster_file) as f:
-        for line in f:
-
-            if line.startswith("SequenceName"):
-                continue
-
-            name, cluster = line.strip().split()
-            cluster_map[name] = int(cluster)
-
-    for leaf in tree.leaves():
-        two_odd_id = cluster_map.get(leaf.name, -1)
-        leaf.add_props(two_odd_id=two_odd_id)
-
-def assign_cluster_colors_modern(tree, color_dict):
-    """
-    Assign cluster colors using predefined COL_2ODD_CLADES dictionary.
-    """
-    clusters = {}
-    for leaf in tree.leaves():
-        cid = leaf.props.get("two_odd_id", -1)
-        if cid == -1:
-            continue
-        clusters.setdefault(cid, []).append(leaf)
-
-    cluster_colors = {}
-
-    # Prepare ordered color keys (exclude minor clades for now)
-    color_keys = [k for k in color_dict.keys() if k != "2ODD_minor_clades"]
-    color_keys_sorted = sorted(color_keys)
-
-    for i, cid in enumerate(sorted(clusters)):
-        if i < len(color_keys_sorted):
-            key = color_keys_sorted[i]
-        else:
-            # fallback if more clusters than colors
-            key = "2ODD_minor_clades"
-
-        cluster_colors[cid] = color_dict[key]
-
-    # propagate cluster color upward only when all descendants belong to same cluster
-    for node in tree.traverse("postorder"):
-        if node.is_leaf:
-            cid = node.props.get("two_odd_id", -1)
-            if cid != -1:
-                node.add_props(cluster_color=cluster_colors[cid])
-            continue
-
-        child_colors = {child.props.get("cluster_color") for child in node.children}
-
-        if len(child_colors) == 1:
-            color = next(iter(child_colors))
-            if color:
-                node.add_props(cluster_color=color)
-
-    return cluster_colors
-
-
-
-def explore_tree_cluster_clades(tree):
-
+    # assign colors per cluster id (cid -> hex color)
     cluster_colors = assign_cluster_colors_modern(tree, COL_2ODD_CLADES)
 
     def draw_tree(tree):
@@ -498,11 +534,13 @@ def explore_tree_cluster_clades(tree):
             colormap=GROUP_COLORS
         )
 
-        yield LegendFace(
-            "TreeCluster clades",
-            variable="discrete",
-            colormap=cluster_colors
-        )
+        # only add the cluster legend if we actually have clusters
+        if cluster_colors:
+            yield LegendFace(
+                "TreeCluster clades",
+                variable="discrete",
+                colormap=cluster_colors
+            )
 
         yield {'node-height-min': 1.0}
 
@@ -572,17 +610,6 @@ def assign_plant_group_props(tree:Tree |PhyloTree):
     which contains the taxonomic lineage as a list of taxonomic names. 
     """
 
-    GROUP_COLORS = {
-            "Algae": "#574104",
-            "Lycophytes": "#ab730c",
-            "Liverworts": "#faaf00",
-            "Ferns": "#c1d717",
-            "Mosses": "#89be86",
-            "Gymnosperms": "#076247",
-            "Basal Angiosperms": "#3BA0BC",
-            "Monocots": "#7502d9",
-            "Dicots": "#edc5ec",
-        }
     
     def classify_plant(node):
         lineage = [t.lower() for t in node.props["named_lineage"]]
@@ -766,22 +793,6 @@ def explore_taxonomy_tree(tree):
     layout = Layout("Plant groups", draw_node=draw_node)
 
     tree.explore(layouts=[layout])
-
-
-# Define your plant group colors
-GROUP_COLORS = {
-    "Algae": "#574104",
-    "Lycophytes": "#ab730c",
-    "Liverworts": "#faaf00",
-    "Ferns": "#c1d717",
-    "Mosses": "#89be86",
-    "Gymnosperms": "#076247",
-    "Early Angiosperms": "#3BA0BC",
-    "Monocots": "#7502d9",
-    "Dicots": "#edc5ec",
-}
-
-
 
 
 def make_smartview_layout(tree):

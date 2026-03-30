@@ -6,7 +6,8 @@ from Bio import SeqIO
 import json
 
 from bio_tools.files.fasta import filter_fasta
-from bio_tools.phylo.twoODDs import is_char_bait_sequence
+from bio_tools.viz.tree import is_char_bait_sequence
+
 
 TARGET_RANKS = {"family", "subfamily", "tribe", "genus"}
 
