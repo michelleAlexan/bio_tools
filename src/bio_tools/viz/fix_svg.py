@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 
 
-input_file = Path("/Users/michellealexander/Downloads/tree-2 (2).svg")
-output_file = Path("/Users/michellealexander/Downloads/ingroup_taxa_order_level.svg")
+input_file = Path("/Users/michellealexander/Downloads/tree-1 (3).svg")
+output_file = Path("/Users/michellealexander/Downloads/2ODDs_14K_tree.svg")
 
 
 with open(input_file, "r", encoding="utf-8") as f:
@@ -188,8 +188,8 @@ with open(output_file_legend, "w", encoding="utf-8") as f:
 
 import re
 
-input_file = "/Users/michellealexander/Downloads/tree-36.svg"
-output_file = "/Users/michellealexander/Downloads/tree-36_fix.svg"
+input_file = "/Users/michellealexander/Downloads/tree-8.svg"
+output_file = "/Users/michellealexander/Downloads/tree-8.svg"
 
 with open(input_file, "r", encoding="utf-8") as f:
     svg = f.read()
@@ -291,14 +291,19 @@ GROUP_COLORS = {
 }
 
 COLORS_2ODD_FUNCTION ={
-    "AOP2" : "#498BA0",
-    "AOP3" : "#3D6F80",
-    "DPS" : "#377672",
+    "GAME31" : "#84cbb6",
+    "GAME32" : "#588e82",
+    "GAME33" : "#67a790",
+    "GAME34" : "#63869c",
+    "AOP2" : "#4e7b3a",
+    "AOP3" : "#4a7638",
+    "DPS" : "#4a7637",
     "GA20ox" : "#6aa84f",
-    "C20_GA2ox": "#406732",
+    "C20_GA2ox": "#93c47d",
     "C19_GA2ox": "#b6d7a8",
-    "DAO" : "#539185",
-    "GA3ox" : "#64b541",
+    "GA2ox" : "#759c63",
+    "DAO" : "#9bb78f",
+    "GA3ox" : "#b6d7a8",
     "GA13ox" : "#a0bd94",
     "GA7ox" : "#e8eed0",
     "2ODDC23" : "#fff2cc",
@@ -310,9 +315,13 @@ COLORS_2ODD_FUNCTION ={
     "GSLOH" : "#ec640f",
     "GRS" : "#e5ac00",
     "TIIAS" : "#af8300",
+    "E8": "#e06666",
+    "GAME40" : "#b05555",
     "D4H" : "#bf7979",
     "BX6" : "#e0bbbb",
     "FNSI" : "#c492cc",
+    "FNSI_F3H" : "#c492cc",
+    "FNSI_FLS" : "#c492cc",
     "F3H" : "#f4cccc",
     "H6H" : "#e9d0db",
     "IDS" : "#cd87a6",
@@ -324,6 +333,7 @@ COLORS_2ODD_FUNCTION ={
     "S5H" : "#abbbc9",
     "S3H" : "#95a3af",
     "FLS" : "#b4a7d6",
+    "FLS_F3H" : "#b4a7d6",
     "DAH": "#784fe1",
     "ANS" : "#8e7cc3",
     "JOX" : "#6fa8dc",
@@ -332,8 +342,7 @@ COLORS_2ODD_FUNCTION ={
     "COD" : "#316ca2",
     "SRG" : "#316a9f",
     "LBO" : "#2c6190",
-    "NCS" : "#1a3852",
-    "T2OGD": "#3B8274",
+    "T2OGD" : "#5D7845",
 
 }
 
@@ -341,10 +350,55 @@ COLORS_2ODD_FUNCTION ={
 # 2️⃣ FUNCTION ORDER
 # -------------------------------
 leaf_function_order = [
-    'GRS','GSLOH','D4H','TIIAS','BX6','S8H','F6H','C2H','GA7ox','2ODDC23','2OG1','LFS',
-    'C19_GA2ox','GA3ox','GA13ox','GA20ox','C20_GA2ox','DAO','T2OGD', 'DPS','AOP2','AOP3',
-    'JOX','LBO','NCS','M2H_weak','SRG','COD','T6OD','ACCO',
-    'ANS','FLS','DAH','FNSI','F3H','S3H','S5H','DMR6','H6H','IDS','M2H','GIM','SLC'
+'GRS',
+ 'GSLOH',
+ 'E8',
+ 'GAME40',
+ 'D4H',
+ 'TIIAS',
+ 'BX6',
+ 'S8H',
+ 'F6H',
+ 'C2H',
+ 'GA7ox',
+ '2ODDC23',
+ '2OG1',
+ 'LFS',
+ 'C19_GA2ox',
+ 'GA20ox',
+ 'GA3ox',
+ 'GA13ox',
+ 'C20_GA2ox',
+ 'DAO',
+ 'T2OGD',
+ 'GAME31',
+ 'GAME34',
+ 'GAME33',
+ 'GAME32',
+ 'DPS',
+ 'AOP2',
+ 'AOP3',
+ 'F3H',
+ 'M2H_weak',
+ 'GIM',
+ 'SLC',
+ 'M2H',
+ 'S3H',
+ 'S5H',
+ 'DMR6',
+ 'FNSI',
+ 'H6H',
+ 'IDS',
+ 'JOX',
+ 'ANS',
+ 'FLS',
+ 'DAH',
+ 'LBO',
+ 'NCS',
+ 'SRG',
+ 'COD',
+ 'T6OD',
+ 'ACCO'
 ]
 
 # remove duplicates preserving order
@@ -358,7 +412,7 @@ for f in leaf_function_order:
 # -------------------------------
 # 3️⃣ CREATE SVG
 # -------------------------------
-dwg = svgwrite.Drawing("legend_lines.svg", size=("600px", "2000px"))
+dwg = svgwrite.Drawing("legend_lines1.svg", size=("600px", "2000px"))
 
 y = 30
 x_box = 30
@@ -402,4 +456,105 @@ for func in ordered_functions:
 
 dwg.save()
 print("Legend with branch lines created: legend_lines.svg")
+# %%
+
+
+#%% create legend for 2ODD IDs gold standard tree
+import svgwrite
+
+# -------------------------------
+# 1️⃣ COLORS
+# -------------------------------
+
+
+COL_2ODD_CLADES = {
+    "2ODD01": "#c4f4ee",
+    "2ODD02": "#34cbc6",
+    "2ODD03": "#1b9aa3",
+    "2ODD04": "#57c2e0",
+    "2ODD05": "#4bdff0",
+    "2ODD06": "#90c3c8",
+    "2ODD07": "#4f8da8",
+    "2ODD08": "#4e9eee",
+    "2ODD09": "#0c3fbe",
+    "2ODD10": "#D3C8DF",
+    "2ODD11": "#8382C4",
+    "2ODD11A": "#BAC4F2",
+    "2ODD11B": "#10007C",
+    "2ODD12": "#555073",
+    "2ODD13": "#eaa8e8",
+    "2ODD13A": "#c9abc5",
+    "2ODD14": "#985C8D",
+    "2ODD15": "#da89d1",
+    "2ODD16": "#682c69",
+    "2ODD17": "#985fc9",
+    "2ODD18": "#5d3c79",
+    "2ODD19": "#db1dc2",
+    "2ODD20": "#ab2599",
+    "2ODD21": "#df3960",
+    "2ODD22": "#794058",
+    "2ODD23": "#48353D",
+    "2ODD24": "#A91010",
+    "2ODD25": "#4F0303",
+    "2ODD26": "#553CC6",
+    "2ODD27": "#3CC6AF",
+    "2ODD28": "#B4E1D6",
+    "2ODD29": "#71D3AF",
+    "2ODD30": "#137549",
+    "2ODD31": "#143E1A",
+    "2ODD32": "#6b9113",
+    "2ODD33": "#218e05",
+    "2ODD34": "#26ba09",
+    "2ODD35": "#cce066",
+    "2ODD36": "#c1c80c",
+    "2ODD37": "#ffd966",
+    "minor_2ODD_cluster": "#999999", 
+}
+
+# -------------------------------
+# 2️⃣ ORDER (sorted nicely)
+# -------------------------------
+def sort_key(name):
+    import re
+    match = re.match(r"2ODD(\d+)([A-Z]*)", name)
+    if match:
+        number = int(match.group(1))
+        suffix = match.group(2)
+        return (number, suffix)
+    return (999, name)  # puts "minor_2ODD_cluster" last
+
+ordered_clades = sorted(COL_2ODD_CLADES.keys(), key=sort_key)
+
+# -------------------------------
+# 3️⃣ CREATE SVG
+# -------------------------------
+dwg = svgwrite.Drawing("legend_2ODD_ids.svg", size=("600px", "2400px"))
+
+y = 30
+x_box = 30
+x_text = 80
+box_size = 18
+line_spacing = 28
+branch_length = 40
+
+# ---- SECTION 2: 2ODD clades ----
+dwg.add(dwg.text("2ODD clades", insert=(30, y), font_size="20px", font_weight="bold"))
+y += 40
+
+for clade in ordered_clades:
+    color = COL_2ODD_CLADES.get(clade, "#cccccc")
+
+    dwg.add(dwg.line(
+        start=(x_box, y - 6),
+        end=(x_box + branch_length, y - 6),
+        stroke=color,
+        stroke_width=6,
+        stroke_linecap="round"
+    ))
+
+    dwg.add(dwg.text(clade, insert=(x_text, y), font_size="16px"))
+    y += line_spacing
+
+dwg.save()
+print("Legend created: legend_2ODD_ids.svg")
 # %%

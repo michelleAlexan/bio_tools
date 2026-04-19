@@ -15,12 +15,16 @@ VALID_RANKS = {"species", "genus", "family", "order"}
 PATH_BAITS_TREE ="/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/2ODD_char_baits_tree.nwk"
 
 COLORS_CHAR_2ODD_FUNCTION ={
+    "GAME31" : "#84cbb6",
+    "GAME32" : "#588e82",
+    "GAME33" : "#67a790",
+    "GAME34" : "#63869c",
     "AOP2" : "#4e7b3a",
     "AOP3" : "#4a7638",
     "DPS" : "#4a7637",
     "GA20ox" : "#6aa84f",
-    "C20-GA2ox": "#93c47d",
-    "C19-GA2ox": "#b6d7a8",
+    "C20_GA2ox": "#93c47d",
+    "C19_GA2ox": "#b6d7a8",
     "GA2ox" : "#759c63",
     "DAO" : "#9bb78f",
     "GA3ox" : "#b6d7a8",
@@ -35,6 +39,8 @@ COLORS_CHAR_2ODD_FUNCTION ={
     "GSLOH" : "#ec640f",
     "GRS" : "#e5ac00",
     "TIIAS" : "#af8300",
+    "E8": "#e06666",
+    "GAME40" : "#b05555",
     "D4H" : "#bf7979",
     "BX6" : "#e0bbbb",
     "FNSI" : "#c492cc",
@@ -53,17 +59,18 @@ COLORS_CHAR_2ODD_FUNCTION ={
     "FLS" : "#b4a7d6",
     "FLS_F3H" : "#b4a7d6",
     "DAH": "#784fe1",
-    "LDOX" : "#8e7cc3",
+    "ANS" : "#8e7cc3",
     "JOX" : "#6fa8dc",
     "ACCO" : "#3d85c6",
     "T6OD" : "#3371a8",
     "COD" : "#316ca2",
     "SRG" : "#316a9f",
     "LBO" : "#2c6190",
+    "T2OGD" : "#5D7845",
 }
 
 
-COL_2ODD_CLADES = {
+TWO_ODD_COLOR_MAP = {
     "2ODD01": "#c4f4ee",
     "2ODD02": "#34cbc6",
     "2ODD03": "#1b9aa3",
@@ -73,19 +80,15 @@ COL_2ODD_CLADES = {
     "2ODD07": "#4f8da8",
     "2ODD08": "#4e9eee",
     "2ODD09": "#0c3fbe",
-    "2ODD10": "#10007C",
-
-    "2ODD11": "#BAC4F2",
-    "2ODD11A": "#8382C4",
-    "2ODD11B": "#555073",
-
-    "2ODD12": "#D3C8DF",
+    "2ODD10": "#D3C8DF",
+    "2ODD11": "#8382C4",
+    "2ODD11A": "#BAC4F2",
+    "2ODD11B": "#10007C",
+    "2ODD12": "#555073",
     "2ODD13": "#eaa8e8",
-
-    "2ODD14": "#c9abc5",
-    "2ODD14A": "#da89d1",
-
-    "2ODD15": "#985C8D",
+    "2ODD13A": "#c9abc5",
+    "2ODD14": "#985C8D",
+    "2ODD15": "#da89d1",
     "2ODD16": "#682c69",
     "2ODD17": "#985fc9",
     "2ODD18": "#5d3c79",
@@ -119,6 +122,10 @@ COL_2ODD_CLADES = {
 }
 
 
+_palette = list(TWO_ODD_COLOR_MAP.values())
+
+
+
 GROUP_COLORS = {
     "Algae": "#574104",
     "Lycophytes": "#ab730c",
@@ -134,8 +141,24 @@ GROUP_COLORS = {
 # REGEX = "^(.+?)__(.+?)__(.+?)__(\d+)$" # /r ^(.+?)__(.+?)__(.+?)__(\d+)$
 #%%
 
-def is_char_bait_sequence(leaf_name: str) -> bool:
-    return len(leaf_name.split("__")) == 4
+
+def _color_for_two_odd_id(two_odd_id: str) -> str:
+    """
+    Return a colour for the given 2ODD ID.
+
+    - If the ID is in the official colour map, use that colour.
+    - Otherwise, assign a deterministic fallback colour drawn from the same palette.
+    """
+    if two_odd_id in TWO_ODD_COLOR_MAP:
+        return TWO_ODD_COLOR_MAP[two_odd_id]
+
+    if not _palette:
+        # extremely defensive: if map is somehow empty
+        return "#808080"
+
+    # deterministic but “any” colour from the existing palette
+    idx = hash(two_odd_id) % len(_palette)
+    return _palette[idx]
 
 
 def classify_plant(node):
@@ -151,6 +174,11 @@ def classify_plant(node):
         return "Mosses"
     elif "marchantiophyta" in lineage:
         return "Liverworts"
+    elif any(x in lineage for x in ["amborellales",
+        "nymphaeales",
+        "austrobaileyales", 
+        "magnoliidae"]):
+        return "Basal Angiosperms"
     if "acrogymnospermae" in lineage:
         return "Gymnosperms"
     elif "liliopsida" in lineage:
@@ -160,12 +188,6 @@ def classify_plant(node):
                                     "mesangiospermae"]):
         return "Dicots"
 
-
-    elif any(x in lineage for x in ["amborellales",
-        "nymphaeales",
-        "austrobaileyales", 
-        "magnoliidae"]):
-        return "Basal Angiosperms"
     else:
         print(f"Plant group couldnt be mapped for node {node.props['sci_name']}")
         print(lineage)
@@ -201,7 +223,7 @@ def assign_props_to_leaves(
         )
 
 
-def assign_cluster_colors_modern(tree, color_dict=COL_2ODD_CLADES):
+def assign_cluster_colors_modern(tree, color_dict=TWO_ODD_COLOR_MAP):
     """
     Assign cluster colors and return an ordered legend mapping.
     """
@@ -250,6 +272,7 @@ def assign_cluster_colors_modern(tree, color_dict=COL_2ODD_CLADES):
 
     return cluster_colors
 #%%
+# t = explorer(PATH_BAITS_TREE, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
 
 def explorer(
     newick: str|Path,
@@ -456,9 +479,6 @@ def explorer(
     return t
 
 
-
-
-
 def explore_tree_plant_groups(tree: Tree):
 
     # --- Layout functions ---
@@ -520,11 +540,10 @@ def explore_tree_plant_groups(tree: Tree):
     )
 
 
-
-def explore_2ODD_IDs(tree):
+def explore_2ODD_IDs(tree, show_leaf_dots=True):
 
     # assign colors per cluster id (cid -> hex color)
-    cluster_colors = assign_cluster_colors_modern(tree, COL_2ODD_CLADES)
+    cluster_colors = assign_cluster_colors_modern(tree, TWO_ODD_COLOR_MAP)
 
     def draw_tree(tree):
 
@@ -555,12 +574,21 @@ def explore_2ODD_IDs(tree):
                 'vt-line': {'stroke': cluster_color, 'stroke-width': 3}
             }
 
-        # --- internal nodes ---
+        # --- remove ALL node dots if disabled ---
+        if not show_leaf_dots:
+            yield {'dot': {'opacity': 0}}
+            
+            # still show labels for leaves
+            if node.is_leaf:
+                yield PropFace('name', position='right')
+            return
+
+        # --- internal nodes (when dots enabled) ---
         if not node.is_leaf:
             yield {'dot': {'opacity': 0}}
             return
 
-        # --- leaf dots = plant group ---
+        # --- leaf dots ---
         plant_color = node.props.get("color")
 
         yield {
@@ -590,65 +618,6 @@ def explore_2ODD_IDs(tree):
             'taxid'
         ]
     )
-
-
-
-# %%
-def assign_plant_group_props(tree:Tree |PhyloTree):
-    """
-    Take a ete4 Tree / PhyloTree and assign plant group properties to the leaves based on their taxonomic lineage.
-        - Algae
-        - Lycophytes (non-seed vascular plants)
-        - Liverworts
-        - Mosses
-        - Ferns
-        - Gymnosperms
-        - Basal Angiosperms
-        - Monocots
-        - Dicots (eudicots)
-    Note that the tree.annotate_ncbi_taxa() function must have been run beforehand to populate the "named_lineage" property for each leaf, 
-    which contains the taxonomic lineage as a list of taxonomic names. 
-    """
-
-    
-    def classify_plant(node):
-        lineage = [t.lower() for t in node.props["named_lineage"]]
-
-        if "zygnematophyceae" in lineage:
-            return "Algae"
-        elif "lycopodiopsida" in lineage:
-            return "Lycophytes"    #Non-seed vascular plants
-        elif "polypodiopsida" in lineage:
-            return "Ferns"
-        elif "bryophyta" in lineage or "anthocerotophyta" in lineage:
-            return "Mosses"
-        elif "marchantiophyta" in lineage:
-            return "Liverworts"
-        if "acrogymnospermae" in lineage:
-            return "Gymnosperms"
-        elif any(x in lineage for x in ["amborellales",
-            "nymphaeales",
-            "austrobaileyales", 
-            "magnoliidae"]):
-            return "Basal Angiosperms"
-        elif "liliopsida" in lineage:
-            return "Monocots"
-        elif any(x in lineage for x in ["eudicotyledons", 
-                                        "magnoliopsida", 
-                                        "mesangiospermae"]):
-            return "Dicots"
-
-
-        else:
-            print(f"Plant group couldnt be mapped for node {node.props['sci_name']}")
-            print(lineage)
-
-    for leaf in tree.leaves():
-        plant_group = classify_plant(leaf)
-        leaf.add_props(
-            plant_group=plant_group,
-            color=GROUP_COLORS.get(plant_group, None)
-        )
 
 
 
@@ -759,7 +728,7 @@ def build_rank_level_tree(
     # --------------------------------------------------
     # Step 5: plant group annotation
     # --------------------------------------------------
-    assign_plant_group_props(tree)
+    assign_props_to_leaves(tree)
 
     # --------------------------------------------------
     # Step 6: formatting
@@ -865,40 +834,6 @@ def render_tree_sm(tree, output_path):
         layouts=[layout],
         w=1500,
         h=height_px)
-#%%
-# t = explorer(PATH_BAITS_TREE, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
-
-#%%
-#accessions = list(t[1,1,1,1,1,1,0,1,1,1,1,0].leaves())
-
-
-#%% REDUCED PARALOGOUS SEQUENCES
-
-path_red_tree = "/Users/michellealexander/projects/bait_sequence_collection/data/2ODDs/FILTERED_2ODD_char_baits_tree.nwk"
-# t = explorer(path_red_tree, branch_color_mode="function", ultrametric=True, outgroup_leaf="BAW81934__GRS__glucosinolate_biosynthesis__3726")
-
-
-
-
-#%%
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1009,7 +944,7 @@ def plot_char_2ODD_tree(path_tree: str | Path = PATH_BAITS_TREE):
         function = clade.name.split("__")[1]
         function_to_leaves[function].append(clade.name)
     for function, leaves in function_to_leaves.items():
-        color = COLORS_2ODD_FUNCTION.get(function)
+        color = COLORS_CHAR_2ODD_FUNCTION.get(function)
         if color is None:
             continue
 
