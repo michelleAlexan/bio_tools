@@ -3,7 +3,6 @@ import pytest
 from ete4 import Tree
 from pathlib import Path
 import json
-from io import StringIO
 
 from bio_tools.homology.paralog import (
     collect_neighboring_leaves_by_species,
